@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Life OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0a0a0a; --surface:#111118; --s2:#14141e;
+  --border:rgba(245,240,232,.1); --text:#f5f0e8;
+  --muted:rgba(245,240,232,.42); --dim:rgba(245,240,232,.16);
+  --accent:#7c3aed; --accent-d:rgba(124,58,237,.15);
+  --accent-30:rgba(124,58,237,.3);
+  --cyan:#00b4d8; --green:#00c853; --yellow:#f5c000; --red:#ff4444;
+  --flash:#e8500a;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;overflow:hidden;}
+/* scrollbars */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px;}
+
+/* ── Layout ── */
+#app{display:flex;height:100vh;overflow:hidden;}
+#sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;}
+#main{flex:1;overflow-y:auto;overflow-x:hidden;}
+
+/* ── Sidebar ── */
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.1em;color:var(--accent);}
+.logo-sub{font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.15em;margin-top:1px;}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;transition:all .15s;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--muted);border-left:3px solid transparent;letter-spacing:.04em;}
+.nav-item:hover{color:var(--text);background:rgba(245,240,232,.03);}
+.nav-item.active{color:var(--accent);background:var(--accent-d);border-left-color:var(--accent);}
+.nav-icon{font-size:1rem;width:18px;text-align:center;}
+.nav-section{font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:var(--dim);letter-spacing:.15em;text-transform:uppercase;padding:12px 18px 4px;}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);}
+.sidebar-user{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);}
+
+/* ── Panes ── */
+.pane{display:none;padding:28px 32px;min-height:100%;}
+.pane.active{display:block;}
+
+/* ── Page header ── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:.08em;line-height:1;}
+.page-sub{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:4px;}
+
+/* ── Buttons ── */
+.btn{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:8px 16px;border-radius:3px;cursor:pointer;transition:all .15s;letter-spacing:.04em;border:none;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#6d28d9;}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+.btn-ghost{background:transparent;border:1px solid var(--dim);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--text);color:var(--text);}
+.btn-danger{background:rgba(255,68,68,.15);border:1px solid rgba(255,68,68,.3);color:var(--red);}
+.btn-danger:hover{background:rgba(255,68,68,.25);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px;}
+.stat-card{background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px 14px;text-align:center;}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1;}
+.stat-lbl{font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:20px;}
+
+/* ── Forms ── */
+label{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:4px;}
+input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:.8rem;padding:8px 10px;outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input::placeholder,textarea::placeholder{color:var(--dim);}
+textarea{resize:vertical;}
+select option{background:var(--surface);}
+.field{margin-bottom:12px;}
+.field-row{display:grid;gap:10px;margin-bottom:12px;}
+
+/* ── Modal ── */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(4px);overflow-y:auto;padding:16px;}
+.modal.open{display:flex;}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:22px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.08em;}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px;}
+.modal-close:hover{color:var(--text);}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+
+/* ── Task cards ── */
+.task-card{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:13px 15px;cursor:pointer;transition:border-color .15s;margin-bottom:8px;}
+.task-card:hover{border-color:var(--accent-30);}
+.task-card.done-today{opacity:.6;border-left:3px solid var(--green);}
+.task-card.overdue{border-left:3px solid var(--red);}
+.task-card.due-today{border-left:3px solid var(--yellow);}
+.task-name{font-weight:600;font-size:.9rem;margin-bottom:4px;}
+.task-meta{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;}
+.badge{font-family:'IBM Plex Mono',monospace;font-size:.55rem;padding:2px 7px;border-radius:8px;display:inline-block;text-transform:uppercase;letter-spacing:.04em;}
+.b-green{background:rgba(0,200,83,.15);color:var(--green);border:1px solid rgba(0,200,83,.3);}
+.b-red{background:rgba(255,68,68,.15);color:var(--red);border:1px solid rgba(255,68,68,.3);}
+.b-yellow{background:rgba(245,200,0,.15);color:var(--yellow);border:1px solid rgba(245,200,0,.3);}
+.b-cyan{background:rgba(0,180,216,.15);color:var(--cyan);border:1px solid rgba(0,180,216,.3);}
+.b-accent{background:var(--accent-d);color:#a78bfa;border:1px solid var(--accent-30);}
+.b-muted{background:rgba(245,240,232,.07);color:var(--muted);border:1px solid var(--dim);}
+
+/* ── Heatmap ── */
+.heatmap{display:flex;gap:3px;flex-wrap:wrap;}
+.hm-cell{width:14px;height:14px;border-radius:2px;flex-shrink:0;cursor:default;transition:opacity .1s;}
+.hm-cell:hover{opacity:.7;}
+
+/* ── Calendar ── */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-dow{font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted);text-align:center;padding:4px 0;}
+.cal-day{background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:5px;min-height:80px;cursor:pointer;transition:border-color .15s;position:relative;overflow:hidden;}
+.cal-day:hover{border-color:var(--accent-30);}
+.cal-day.today{border-color:var(--accent);background:var(--accent-d);}
+.cal-day.other-month{opacity:.3;}
+.cal-day-num{font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:var(--muted);margin-bottom:3px;}
+.cal-day.today .cal-day-num{color:var(--accent);}
+.cal-ev{font-family:'IBM Plex Mono',monospace;font-size:.5rem;padding:1px 4px;border-radius:2px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.ev-done{background:rgba(0,200,83,.2);color:var(--green);}
+.ev-missed{background:rgba(255,68,68,.18);color:var(--red);}
+.ev-upcoming{background:var(--accent-d);color:#a78bfa;}
+.ev-scheduled{background:rgba(245,240,232,.06);color:var(--muted);}
+
+/* ── Habit cards ── */
+.habit-card{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:13px 15px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
+.habit-card:hover{border-color:var(--accent-30);}
+
+/* ── Journal ── */
+.journal-entry{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:10px;}
+.journal-date{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--accent);margin-bottom:6px;}
+.journal-body{font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.7;white-space:pre-wrap;}
+
+/* ── Progress bar ── */
+.progress-bar{background:rgba(245,240,232,.08);border-radius:4px;height:6px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--text);z-index:1000;transform:translateY(20px);opacity:0;transition:all .25s;pointer-events:none;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.success{border-color:rgba(0,200,83,.4);color:var(--green);}
+#toast.error{border-color:rgba(255,68,68,.4);color:var(--red);}
+
+/* ── Loader ── */
+.loader{display:inline-block;width:12px;height:12px;border:2px solid var(--dim);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── Config modal ── */
+#configModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:900;backdrop-filter:blur(8px);}
+.config-box{background:var(--surface);border:1px solid var(--accent-30);border-radius:8px;padding:32px;width:100%;max-width:440px;}
+.config-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--accent);letter-spacing:.1em;margin-bottom:4px;}
+.config-sub{font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted);margin-bottom:24px;}
+
+/* ── Section title ── */
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;color:var(--accent);border-bottom:1px solid var(--accent-d);padding-bottom:4px;margin-bottom:14px;}
+
+/* ── Today quick-log ── */
+.quick-check{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--s2);border:1px solid var(--border);border-radius:3px;margin-bottom:6px;cursor:pointer;transition:all .15s;}
+.quick-check:hover{border-color:var(--accent-30);}
+.quick-check.checked{background:rgba(0,200,83,.06);border-color:rgba(0,200,83,.25);}
+.check-circle{width:20px;height:20px;border-radius:50%;border:2px solid var(--dim);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.quick-check.checked .check-circle{background:var(--green);border-color:var(--green);}
+.check-label{flex:1;font-family:'IBM Plex Mono',monospace;font-size:.72rem;}
+.quick-check.checked .check-label{text-decoration:line-through;opacity:.5;}
+
+/* ── Responsive ── */
+@media(max-width:700px){
+  #sidebar{display:none;}
+  .pane{padding:18px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ CONFIG MODAL ══ -->
+<div id="configModal">
+  <div class="config-box">
+    <div class="config-title">LIFE OS</div>
+    <div class="config-sub">Connect your Supabase project to get started</div>
+    <div class="field">
+      <label>Supabase Project URL</label>
+      <input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co" />
+    </div>
+    <div class="field">
+      <label>Anon Public Key</label>
+      <input type="text" id="cfgKey" placeholder="eyJhbGciOiJIUzI1NiIs..." />
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="saveConfig()">CONNECT →</button>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text">LIFE OS</div>
+      <div class="logo-sub">Personal Command Center</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" onclick="switchPane('today')" id="nav-today">
+        <span class="nav-icon">⚡</span>TODAY
+      </div>
+      <div class="nav-item" onclick="switchPane('dashboard')" id="nav-dashboard">
+        <span class="nav-icon">📊</span>DASHBOARD
+      </div>
+      <div class="nav-item" onclick="switchPane('calendar')" id="nav-calendar">
+        <span class="nav-icon">📅</span>CALENDAR
+      </div>
+      <div class="nav-section">Track</div>
+      <div class="nav-item" onclick="switchPane('tasks')" id="nav-tasks">
+        <span class="nav-icon">✅</span>TASKS
+      </div>
+      <div class="nav-item" onclick="switchPane('habits')" id="nav-habits">
+        <span class="nav-icon">🔥</span>HABITS
+      </div>
+      <div class="nav-item" onclick="switchPane('journal')" id="nav-journal">
+        <span class="nav-icon">📓</span>JOURNAL
+      </div>
+      <div class="nav-section">System</div>
+      <div class="nav-item" onclick="showConfig()" id="nav-settings">
+        <span class="nav-icon">⚙</span>SETTINGS
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebarDate"></div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main id="main">
+
+    <!-- ══ TODAY ══ -->
+    <div class="pane active" id="pane-today">
+      <div class="page-header">
+        <div>
+          <div class="page-title">TODAY</div>
+          <div class="page-sub" id="todayDateLabel"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="loadAll()">↺</button>
+          <button class="btn btn-primary" onclick="openTaskModal()">+ TASK</button>
+        </div>
+      </div>
+      <div class="stat-grid" id="todayStats"></div>
+      <div class="section-title">TASKS DUE TODAY</div>
+      <div id="todayTaskList"></div>
+      <div class="section-title" style="margin-top:20px;">HABITS</div>
+      <div id="todayHabitList"></div>
+    </div>
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="pane" id="pane-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">DASHBOARD</div>
+          <div class="page-sub">30-day completion overview</div>
+        </div>
+        <button class="btn btn-ghost" onclick="renderDashboard()">↺ REFRESH</button>
+      </div>
+      <!-- Weakest alert -->
+      <div id="weakestAlert" style="display:none;margin-bottom:16px;"></div>
+      <!-- Task dashboard -->
+      <div id="dashboardContent"></div>
+    </div>
+
+    <!-- ══ CALENDAR ══ -->
+    <div class="pane" id="pane-calendar">
+      <div class="page-header">
+        <div>
+          <div class="page-title">CALENDAR</div>
+          <div class="page-sub">All tasks & habits — past, present & future</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="shiftCal(-1)">← PREV</button>
+          <div id="calTitle" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;min-width:160px;text-align:center;"></div>
+          <button class="btn btn-ghost" onclick="shiftCal(1)">NEXT →</button>
+          <button class="btn btn-ghost" onclick="goCalToday()">TODAY</button>
+        </div>
+      </div>
+      <!-- Legend -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(0,200,83,.3);margin-right:4px;"></span>Done</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,68,68,.2);margin-right:4px;"></span>Missed</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-d);margin-right:4px;"></span>Upcoming</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(245,240,232,.06);margin-right:4px;"></span>Scheduled</span>
+      </div>
+      <!-- DOW headers -->
+      <div class="cal-grid" style="margin-bottom:4px;">
+        <div class="cal-dow">SUN</div><div class="cal-dow">MON</div><div class="cal-dow">TUE</div>
+        <div class="cal-dow">WED</div><div class="cal-dow">THU</div><div class="cal-dow">FRI</div><div class="cal-dow">SAT</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- ══ TASKS (library) ══ -->
+    <div class="pane" id="pane-tasks">
+      <div class="page-header">
+        <div>
+          <div class="page-title">TASKS</div>
+          <div class="page-sub">Recurring task library</div>
+        </div>
+        <div class="btn-row">
+          <input type="text" id="taskSearch" placeholder="Search…" style="width:180px;" oninput="renderTaskLibrary()" />
+          <select id="taskCatFilter" style="width:140px;" onchange="renderTaskLibrary()">
+            <option value="">All Categories</option>
+            <option>Health</option><option>Fitness</option><option>Finance</option>
+            <option>Home</option><option>Learning</option><option>Work</option>
+            <option>Relationships</option><option>Mindfulness</option><option>Other</option>
+          </select>
+          <button class="btn btn-primary" onclick="openTaskModal()">+ NEW TASK</button>
+        </div>
+      </div>
+      <div id="taskLibrary"></div>
+    </div>
+
+    <!-- ══ HABITS ══ -->
+    <div class="pane" id="pane-habits">
+      <div class="page-header">
+        <div>
+          <div class="page-title">HABITS</div>
+          <div class="page-sub">Streak tracking — no recurrence, just daily consistency</div>
+        </div>
+        <button class="btn btn-primary" onclick="openHabitModal()">+ NEW HABIT</button>
+      </div>
+      <div id="habitList"></div>
+    </div>
+
+    <!-- ══ JOURNAL ══ -->
+    <div class="pane" id="pane-journal">
+      <div class="page-header">
+        <div>
+          <div class="page-title">JOURNAL</div>
+          <div class="page-sub">Daily log & reflections</div>
+        </div>
+        <button class="btn btn-primary" onclick="openJournalModal()">+ NEW ENTRY</button>
+      </div>
+      <div id="journalList"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══ TASK MODAL ══ -->
+<div class="modal" id="taskModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="taskModalTitle">NEW TASK</div>
+      <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div class="field"><label>Task Name</label><input type="text" id="t_name" placeholder="e.g. Morning workout, Review finances…" /></div>
+    <div class="field-row" style="grid-template-columns:1fr 1fr;">
+      <div class="field">
+        <label>Category</label>
+        <select id="t_cat">
+          <option value="">— Select —</option>
+          <option>Health</option><option>Fitness</option><option>Finance</option>
+          <option>Home</option><option>Learning</option><option>Work</option>
+          <option>Relationships</option><option>Mindfulness</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Recurrence</label>
+        <select id="t_rec" onchange="toggleIntervalField()">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="custom">Custom interval</option>
+          <option value="once">One-time</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="intervalField" style="display:none;">
+      <label>Every X Days</label>
+      <input type="number" id="t_interval" min="1" placeholder="e.g. 3" />
+    </div>
+    <div class="field-row" style="grid-template-columns:1fr 1fr;">
+      <div class="field"><label>Start Date</label><input type="date" id="t_start" /></div>
+      <div class="field"><label>Due Time (optional)</label><input type="time" id="t_time" /></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="t_notes" rows="2" placeholder="Any details…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">🗑 DELETE</button>
+      <button class="btn btn-secondary" onclick="closeTaskModal()">CANCEL</button>
+      <button class="btn btn-primary" id="saveTaskBtn" onclick="saveTask()">SAVE TASK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TASK DETAIL MODAL ══ -->
+<div class="modal" id="taskDetailModal">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="tdName"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:var(--muted);margin-top:3px;" id="tdMeta"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" id="tdMarkBtn" onclick="tdMarkDone()" style="font-size:.68rem;padding:6px 12px;">✓ MARK DONE</button>
+        <button class="btn btn-ghost" onclick="tdEdit()" style="font-size:.68rem;padding:6px 12px;">✏ EDIT</button>
+        <button class="modal-close" onclick="closeTaskDetail()">✕</button>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div class="stat-grid" id="tdStats" style="margin-bottom:16px;"></div>
+    <!-- 30-day heatmap -->
+    <div class="section-title">LAST 30 DAYS</div>
+    <div class="heatmap" id="tdHeatmap" style="margin-bottom:16px;"></div>
+    <!-- 7-day forecast -->
+    <div class="section-title">NEXT 7 DAYS</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;" id="tdForecast"></div>
+    <!-- Notes search -->
+    <div class="section-title">SEARCH NOTES</div>
+    <input type="text" id="tdNoteQ" placeholder="Search completion notes…" style="margin-bottom:8px;" oninput="filterTaskNotes(this.value)" />
+    <div id="tdNoteResults" style="display:none;max-height:120px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:8px;margin-bottom:8px;"></div>
+    <!-- History -->
+    <div class="section-title">COMPLETION HISTORY</div>
+    <div id="tdHistory" style="max-height:200px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- ══ COMPLETE TASK MODAL ══ -->
+<div class="modal" id="completeModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title" id="compModalTitle">MARK DONE</div>
+      <button class="modal-close" onclick="closeCompleteModal()">✕</button>
+    </div>
+    <div class="field"><label>Completed By (optional)</label><input type="text" id="comp_by" placeholder="Your name" /></div>
+    <div class="field"><label>Date</label><input type="date" id="comp_date" /></div>
+    <div class="field"><label>Notes (optional)</label><textarea id="comp_notes" rows="2" placeholder="Any notes about this completion…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCompleteModal()">CANCEL</button>
+      <button class="btn btn-primary" id="compSaveBtn" onclick="saveCompletion()">✓ DONE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DAY DETAIL MODAL ══ -->
+<div class="modal" id="dayModal">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="dayModalTitle"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);" id="dayModalSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeDayModal()">✕</button>
+    </div>
+    <div id="dayModalList"></div>
+  </div>
+</div>
+
+<!-- ══ HABIT MODAL ══ -->
+<div class="modal" id="habitModal">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title" id="habitModalTitle">NEW HABIT</div>
+      <button class="modal-close" onclick="closeHabitModal()">✕</button>
+    </div>
+    <div class="field"><label>Habit Name</label><input type="text" id="h_name" placeholder="e.g. Drink 8 glasses of water" /></div>
+    <div class="field-row" style="grid-template-columns:1fr 1fr;">
+      <div class="field">
+        <label>Category</label>
+        <select id="h_cat">
+          <option value="">— Select —</option>
+          <option>Health</option><option>Fitness</option><option>Finance</option>
+          <option>Home</option><option>Learning</option><option>Mindfulness</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Target (per week)</label><input type="number" id="h_target" min="1" max="7" value="7" /></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="h_notes" rows="2" placeholder="Why this habit matters…"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="deleteHabitBtn" onclick="deleteHabit()" style="display:none;margin-right:auto;">🗑 DELETE</button>
+      <button class="btn btn-secondary" onclick="closeHabitModal()">CANCEL</button>
+      <button class="btn btn-primary" id="saveHabitBtn" onclick="saveHabit()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ JOURNAL MODAL ══ -->
+<div class="modal" id="journalModal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title" id="journalModalTitle">NEW ENTRY</div>
+      <button class="modal-close" onclick="closeJournalModal()">✕</button>
+    </div>
+    <div class="field"><label>Date</label><input type="date" id="j_date" /></div>
+    <div class="field"><label>Mood</label>
+      <select id="j_mood">
+        <option value="">— Select —</option>
+        <option value="great">🌟 Great</option>
+        <option value="good">😊 Good</option>
+        <option value="okay">😐 Okay</option>
+        <option value="rough">😔 Rough</option>
+        <option value="bad">😞 Bad</option>
+      </select>
+    </div>
+    <div class="field"><label>Entry</label><textarea id="j_body" rows="8" placeholder="How was your day? What did you accomplish? What are you grateful for?"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="deleteJournalBtn" onclick="deleteJournal()" style="display:none;margin-right:auto;">🗑 DELETE</button>
+      <button class="btn btn-secondary" onclick="closeJournalModal()">CANCEL</button>
+      <button class="btn btn-primary" id="saveJournalBtn" onclick="saveJournal()">SAVE ENTRY</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// LIFE OS — Core
+// ══════════════════════════════════════════════════════
+let sbClient = null;
+let _allTasks=[], _allLogs=[], _allHabits=[], _allHabitLogs=[], _allJournals=[];
+let _editTaskId=null, _editHabitId=null, _editJournalId=null;
+let _tdTask=null, _tdLogs=[];
+let _completeTaskId=null, _completeTaskName='';
+let _calYear, _calMonth;
+const CATS = ['Health','Fitness','Finance','Home','Learning','Work','Relationships','Mindfulness','Other'];
+const CAT_COLORS = {
+  Health:'#ff6b9d', Fitness:'#f59e0b', Finance:'#10b981',
+  Home:'#60a5fa', Learning:'#a78bfa', Work:'#e8500a',
+  Relationships:'#f472b6', Mindfulness:'#34d399', Other:'#94a3b8'
+};
+const RECUR_LABELS = {daily:'Daily', weekly:'Weekly', custom:'Custom', once:'One-time'};
+const MOOD_ICONS = {great:'🌟',good:'😊',okay:'😐',rough:'😔',bad:'😞'};
+
+// ── Date helpers ──────────────────────────────────────
+function todayStr() {
+  const n = new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]+' '+parseInt(day)+', '+y;
+}
+function dateStr(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// ── Config ────────────────────────────────────────────
+function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  if (!url||!key) { alert('Both fields required.'); return; }
+  localStorage.setItem('lifeos_url', url);
+  localStorage.setItem('lifeos_key', key);
+  initSupabase(url, key);
+  document.getElementById('configModal').style.display = 'none';
+  loadAll();
+}
+function showConfig() {
+  document.getElementById('cfgUrl').value = localStorage.getItem('lifeos_url')||'';
+  document.getElementById('cfgKey').value = localStorage.getItem('lifeos_key')||'';
+  document.getElementById('configModal').style.display = 'flex';
+}
+function initSupabase(url, key) {
+  sbClient = supabase.createClient(url, key);
+}
+
+// ── Nav ───────────────────────────────────────────────
+let _currentPane = 'today';
+function switchPane(name) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  _currentPane = name;
+  if (name==='dashboard') renderDashboard();
+  if (name==='calendar')  renderCalendar();
+  if (name==='tasks')     renderTaskLibrary();
+  if (name==='habits')    renderHabits();
+  if (name==='journal')   renderJournal();
+}
+
+// ── Load all data ─────────────────────────────────────
+async function loadAll() {
+  if (!sbClient) return;
+  const thirty = (() => { const d=new Date(); d.setDate(d.getDate()-30); return dateStr(d); })();
+  const [t,l,h,hl,j] = await Promise.all([
+    sbClient.from('los_tasks').select('*').order('created_at'),
+    sbClient.from('los_task_logs').select('*').gte('completed_date', thirty).order('completed_date',{ascending:false}),
+    sbClient.from('los_habits').select('*').order('created_at'),
+    sbClient.from('los_habit_logs').select('*').gte('log_date', thirty).order('log_date',{ascending:false}),
+    sbClient.from('los_journal').select('*').order('entry_date',{ascending:false}).limit(60),
+  ]);
+  _allTasks   = t.data||[];
+  _allLogs    = l.data||[];
+  _allHabits  = h.data||[];
+  _allHabitLogs = hl.data||[];
+  _allJournals  = j.data||[];
+  renderToday();
+  if (_currentPane==='dashboard') renderDashboard();
+  if (_currentPane==='calendar')  renderCalendar();
+  if (_currentPane==='tasks')     renderTaskLibrary();
+  if (_currentPane==='habits')    renderHabits();
+  if (_currentPane==='journal')   renderJournal();
+}
+
+// ══════════════════════════════════════════════════════
+// TODAY
+// ══════════════════════════════════════════════════════
+function renderToday() {
+  const today = todayStr();
+  const now   = new Date();
+
+  // Date labels
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const label = days[now.getDay()]+', '+months[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear();
+  document.getElementById('todayDateLabel').textContent = label;
+  document.getElementById('sidebarDate').textContent    = label.split(', ')[0];
+
+  const dueTasks   = _allTasks.filter(t => isTaskDueOn(t, today));
+  const doneTasks  = new Set(_allLogs.filter(l=>l.completed_date===today).map(l=>l.task_id));
+  const doneCount  = dueTasks.filter(t => doneTasks.has(t.id)).length;
+  const pct        = dueTasks.length > 0 ? Math.round(doneCount/dueTasks.length*100) : 100;
+
+  const dueHabits  = _allHabits;
+  const doneHabits = new Set(_allHabitLogs.filter(l=>l.log_date===today).map(l=>l.habit_id));
+  const doneHCount = dueHabits.filter(h => doneHabits.has(h.id)).length;
+
+  // Stats
+  document.getElementById('todayStats').innerHTML = [
+    ['TASKS DUE',    dueTasks.length,  'var(--accent)'],
+    ['TASKS DONE',   doneCount,        'var(--green)'],
+    ['COMPLETION',   pct+'%',          pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)'],
+    ['HABITS DONE',  doneHCount+'/'+dueHabits.length, 'var(--cyan)'],
+  ].map(([l,v,c])=>`<div class="stat-card"><div class="stat-val" style="color:${c};">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+
+  // Task quick-log
+  const taskEl = document.getElementById('todayTaskList');
+  if (!dueTasks.length) {
+    taskEl.innerHTML = '<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);padding:16px 0;">No tasks due today 🎉</div>';
+  } else {
+    taskEl.innerHTML = '';
+    dueTasks.forEach(t => {
+      const done = doneTasks.has(t.id);
+      const div  = document.createElement('div');
+      div.className = 'quick-check'+(done?' checked':'');
+      div.onclick   = () => done ? null : openCompleteModal(t.id, t.name);
+      const color   = CAT_COLORS[t.category]||'var(--muted)';
+      div.innerHTML = `
+        <div class="check-circle">${done?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.5" fill="none"/></svg>':''}</div>
+        <div class="check-label">
+          <div>${t.name}</div>
+          <div style="font-family:IBM Plex Mono,monospace;font-size:.58rem;color:var(--muted);margin-top:2px;">
+            ${t.category?`<span style="color:${color};">${t.category}</span>`:''}
+            ${t.due_time?` · ⏰ ${t.due_time}`:''}
+          </div>
+        </div>
+        ${done?'<span class="badge b-green">✓ DONE</span>':''}`;
+      taskEl.appendChild(div);
+    });
+  }
+
+  // Habit quick-log
+  const habitEl = document.getElementById('todayHabitList');
+  if (!_allHabits.length) {
+    habitEl.innerHTML = '<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);padding:12px 0;">No habits yet — <button class="btn btn-ghost" style="font-size:.65rem;" onclick="openHabitModal()">+ add one</button></div>';
+  } else {
+    habitEl.innerHTML = '';
+    _allHabits.forEach(h => {
+      const done = doneHabits.has(h.id);
+      const div  = document.createElement('div');
+      div.className = 'quick-check'+(done?' checked':'');
+      div.onclick   = () => done ? null : logHabitToday(h);
+      div.innerHTML = `
+        <div class="check-circle">${done?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.5" fill="none"/></svg>':''}</div>
+        <div class="check-label">
+          <div>${h.name}</div>
+          <div style="font-family:IBM Plex Mono,monospace;font-size:.58rem;color:var(--muted);margin-top:2px;">${h.category||''}</div>
+        </div>
+        ${done?'<span class="badge b-green">✓</span>':'<span style="font-family:IBM Plex Mono,monospace;font-size:.58rem;color:var(--muted);">🔥 '+calcHabitStreak(h)+'d streak</span>'}`;
+      habitEl.appendChild(div);
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// TASK SCHEDULING HELPERS
+// ══════════════════════════════════════════════════════
+function isTaskDueOn(task, dateStr) {
+  const date  = new Date(dateStr+'T00:00:00');
+  const start = task.start_date ? new Date(task.start_date+'T00:00:00') : date;
+  if (date < start) return false;
+  if (task.recurrence==='daily')  return true;
+  if (task.recurrence==='once')   return task.start_date===dateStr;
+  if (task.recurrence==='weekly') return Math.round((date-start)/86400000)%7===0;
+  if (task.recurrence==='custom'&&task.interval_days)
+    return Math.round((date-start)/86400000)%task.interval_days===0;
+  return false;
+}
+function getExpected(task, days) {
+  let n=0;
+  for(let i=days-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);if(isTaskDueOn(task,dateStr(d)))n++;}
+  return n;
+}
+function isDoneOn(taskId, ds) {
+  return _allLogs.some(l=>l.task_id===taskId&&l.completed_date===ds);
+}
+function isDoneToday(taskId) { return isDoneOn(taskId, todayStr()); }
+function calcStreak(task) {
+  const today=new Date();today.setHours(0,0,0,0);
+  let streak=0;
+  for(let i=0;i<365;i++){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    const ds=dateStr(d);
+    if(!isTaskDueOn(task,ds))continue;
+    if(isDoneOn(task.id,ds))streak++;
+    else if(i>0)break;
+  }
+  return streak;
+}
+function calcHabitStreak(habit) {
+  const today=new Date();today.setHours(0,0,0,0);
+  let streak=0;
+  for(let i=0;i<365;i++){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    const ds=dateStr(d);
+    if(_allHabitLogs.some(l=>l.habit_id===habit.id&&l.log_date===ds))streak++;
+    else if(i>0)break;
+  }
+  return streak;
+}
+
+// ══════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════
+async function renderDashboard() {
+  const el = document.getElementById('dashboardContent');
+  if (!sbClient) return;
+
+  // Weakest tasks alert
+  const rates = _allTasks.map(t=>{
+    const exp=getExpected(t,30);
+    if(!exp)return null;
+    const done=new Set(_allLogs.filter(l=>l.task_id===t.id).map(l=>l.completed_date)).size;
+    return {task:t, rate:Math.round(done/exp*100), done, exp};
+  }).filter(Boolean).sort((a,b)=>a.rate-b.rate);
+
+  const weakest=rates.filter(r=>r.rate<80).slice(0,3);
+  const alertEl=document.getElementById('weakestAlert');
+  if(weakest.length){
+    alertEl.style.display='block';
+    alertEl.innerHTML=`<div style="background:rgba(124,58,237,.07);border:1px solid var(--accent-30);border-radius:4px;padding:12px 14px;">
+      <div class="section-title" style="color:var(--accent);margin-bottom:10px;">⚠ NEEDS ATTENTION</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+        ${weakest.map(r=>`<div style="background:var(--bg);border:1px solid var(--accent-30);border-radius:3px;padding:9px;cursor:pointer;" onclick="openTaskDetail(${JSON.stringify(r.task).replace(/"/g,'&quot;')})">
+          <div style="font-weight:600;font-size:.82rem;margin-bottom:2px;">${r.task.name}</div>
+          <div style="font-family:IBM Plex Mono,monospace;font-size:.6rem;color:var(--muted);margin-bottom:6px;">${r.task.category||''} · ${RECUR_LABELS[r.task.recurrence]||''}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${r.rate}%;background:${r.rate>=50?'var(--yellow)':'var(--red)'};"></div></div>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${r.rate>=50?'var(--yellow)':'var(--red)'};">${r.rate}%</span>
+          </div>
+          <div style="font-family:IBM Plex Mono,monospace;font-size:.55rem;color:var(--muted);margin-top:3px;">${r.done} of ${r.exp} expected</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  } else { alertEl.style.display='none'; }
+
+  if (!_allTasks.length) {
+    el.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);text-align:center;padding:40px 0;">No tasks yet — create your first task to see the dashboard.</div>';
+    return;
+  }
+
+  el.innerHTML='';
+  // Group by category
+  const groups={};
+  _allTasks.forEach(t=>{const c=t.category||'Other';if(!groups[c])groups[c]=[];groups[c].push(t);});
+  const orderedCats=[...CATS.filter(c=>groups[c]),...Object.keys(groups).filter(c=>!CATS.includes(c))];
+
+  orderedCats.forEach(cat=>{
+    const tasks=groups[cat];
+    if(!tasks)return;
+    const color=CAT_COLORS[cat]||'#94a3b8';
+    const hdr=document.createElement('div');
+    hdr.style.cssText=`font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;color:${color};border-bottom:1px solid ${color}33;padding-bottom:3px;margin:18px 0 10px;display:flex;justify-content:space-between;`;
+    const doneToday=tasks.filter(t=>isDoneToday(t.id)).length;
+    hdr.innerHTML=`<span>${cat.toUpperCase()}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);">${doneToday}/${tasks.length} today</span>`;
+    el.appendChild(hdr);
+
+    const grid=document.createElement('div');
+    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:9px;';
+
+    tasks.forEach(task=>{
+      const taskLogs=_allLogs.filter(l=>l.task_id===task.id);
+      const exp30=getExpected(task,30);
+      const done30=exp30>0?new Set(taskLogs.map(l=>l.completed_date)).size:0;
+      const rate=exp30>0?Math.round(done30/exp30*100):null;
+      const streak=calcStreak(task);
+      const doneNow=isDoneToday(task.id);
+      const rateColor=rate===null?'var(--muted)':rate>=80?'var(--green)':rate>=50?'var(--yellow)':'var(--red)';
+
+      // Mini heatmap 14 days
+      let miniHeat='';
+      for(let i=13;i>=0;i--){
+        const d=new Date();d.setDate(d.getDate()-i);
+        const ds=dateStr(d);
+        const due=isTaskDueOn(task,ds);
+        const done=isDoneOn(task.id,ds);
+        const isToday=i===0;
+        let bg;
+        if(!due)bg='rgba(245,240,232,.04)';
+        else if(done)bg='var(--green)';
+        else if(isToday)bg='rgba(245,200,0,.4)';
+        else bg='rgba(255,68,68,.3)';
+        miniHeat+=`<div style="width:12px;height:12px;border-radius:2px;background:${bg};" title="${ds}"></div>`;
+      }
+
+      const card=document.createElement('div');
+      card.style.cssText=`background:var(--s2);border:1px solid ${doneNow?'rgba(0,200,83,.3)':'var(--border)'};border-radius:4px;padding:12px;cursor:pointer;transition:border-color .15s;`;
+      card.onmouseenter=()=>card.style.borderColor=color+'88';
+      card.onmouseleave=()=>card.style.borderColor=doneNow?'rgba(0,200,83,.3)':'var(--border)';
+      card.onclick=()=>openTaskDetail(task);
+      card.innerHTML=`
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:8px;">
+          <div>
+            <div style="font-weight:600;font-size:.85rem;margin-bottom:3px;${doneNow?'text-decoration:line-through;opacity:.6;':''}">${task.name}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:var(--muted);">${RECUR_LABELS[task.recurrence]||task.recurrence}${task.interval_days?' ('+task.interval_days+'d)':''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            ${doneNow?'<div style="font-family:Bebas Neue,sans-serif;font-size:.85rem;color:var(--green);">✓ DONE</div>':''}
+            ${rate!==null?`<div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:${rateColor};line-height:1;">${rate}%</div><div style="font-family:'IBM Plex Mono',monospace;font-size:.5rem;color:var(--muted);">30d</div>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:6px;">${miniHeat}</div>
+        ${streak>0?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:${streak>=7?'var(--green)':'var(--muted)'};">🔥 ${streak}d streak</div>`:''}`;
+      grid.appendChild(card);
+    });
+    el.appendChild(grid);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// TASK DETAIL
+// ══════════════════════════════════════════════════════
+async function openTaskDetail(task) {
+  _tdTask=task;
+  // Fetch full log history
+  const {data:logs}=await sbClient.from('los_task_logs').select('*').eq('task_id',task.id).order('completed_date',{ascending:false});
+  _tdLogs=logs||[];
+
+  const color=CAT_COLORS[task.category]||'var(--accent)';
+  document.getElementById('tdName').textContent=task.name;
+  document.getElementById('tdMeta').textContent=[
+    RECUR_LABELS[task.recurrence]||task.recurrence,
+    task.interval_days?'every '+task.interval_days+'d':'',
+    task.category, task.due_time?'⏰ '+task.due_time:''
+  ].filter(Boolean).join('  ·  ');
+
+  const doneBtn=document.getElementById('tdMarkBtn');
+  if(isDoneToday(task.id)){doneBtn.textContent='✓ DONE TODAY';doneBtn.disabled=true;doneBtn.style.opacity='.5';}
+  else{doneBtn.textContent='✓ MARK DONE';doneBtn.disabled=false;doneBtn.style.opacity='1';}
+
+  // Stats
+  const exp30=getExpected(task,30), exp7=getExpected(task,7);
+  const sevenAgo=new Date();sevenAgo.setDate(sevenAgo.getDate()-7);
+  const done30=new Set(_tdLogs.map(l=>l.completed_date)).size;
+  const done7=new Set(_tdLogs.filter(l=>new Date(l.completed_date+'T00:00:00')>=sevenAgo).map(l=>l.completed_date)).size;
+  const r30=exp30>0?Math.round(done30/exp30*100):null;
+  const r7=exp7>0?Math.round(done7/exp7*100):null;
+  const streak=calcStreak(task);
+  const rc=r=>r===null?'var(--muted)':r>=80?'var(--green)':r>=50?'var(--yellow)':'var(--red)';
+
+  document.getElementById('tdStats').innerHTML=[
+    ['7D RATE',r7!==null?r7+'%':'—',rc(r7)],
+    ['30D RATE',r30!==null?r30+'%':'—',rc(r30)],
+    ['STREAK',streak+'d',streak>=5?'var(--green)':streak>=2?'var(--yellow)':'var(--muted)'],
+    ['TOTAL',_tdLogs.length,'var(--cyan)'],
+    ['EXP/MO',exp30>0?exp30+'x':'—','var(--muted)'],
+    ['DONE/MO',done30+'x',rc(r30)],
+  ].map(([l,v,c])=>`<div class="stat-card"><div class="stat-val" style="color:${c};font-size:1.2rem;">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+
+  // 30-day heatmap
+  const hmEl=document.getElementById('tdHeatmap');
+  hmEl.innerHTML='';
+  for(let i=29;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const ds=dateStr(d);
+    const due=isTaskDueOn(task,ds);
+    const done=_tdLogs.some(l=>l.completed_date===ds);
+    const isToday=i===0;
+    let bg,border='transparent';
+    if(!due)bg='rgba(245,240,232,.05)';
+    else if(done)bg='var(--green)';
+    else if(isToday){bg='rgba(245,200,0,.3)';border='var(--yellow)';}
+    else bg='rgba(255,68,68,.3)';
+    const cell=document.createElement('div');
+    cell.className='hm-cell';
+    cell.style.cssText=`background:${bg};border:1px solid ${border};`;
+    cell.title=ds+(due?(done?' — ✓ Done':isToday?' — Due today':' — Missed'):' — Not scheduled');
+    hmEl.appendChild(cell);
+  }
+
+  // 7-day forecast
+  const fcEl=document.getElementById('tdForecast');
+  fcEl.innerHTML='';
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for(let i=0;i<7;i++){
+    const d=new Date();d.setDate(d.getDate()+i);
+    const ds=dateStr(d);
+    const due=isTaskDueOn(task,ds);
+    const done=_tdLogs.some(l=>l.completed_date===ds);
+    const isToday=i===0;
+    const cell=document.createElement('div');
+    cell.style.cssText=`background:${due?(done?'rgba(0,200,83,.1)':'var(--accent-d)'):'transparent'};border:1px solid ${due?(done?'rgba(0,200,83,.25)':'var(--accent-30)'):'var(--dim)'};border-radius:3px;padding:6px 4px;text-align:center;`;
+    cell.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:${isToday?'var(--accent)':'var(--muted)'};">${isToday?'TODAY':dayNames[d.getDay()]}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${isToday?'var(--accent)':'var(--text)'};">${d.getDate()}</div>
+      ${due?`<div style="font-size:.7rem;margin-top:2px;">${done?'✓':'📋'}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:.48rem;color:${done?'var(--green)':'#a78bfa'};">${done?'DONE':'DUE'}</div>`:'<div style="font-family:IBM Plex Mono,monospace;font-size:.5rem;color:var(--dim);margin-top:4px;">—</div>'}`;
+    fcEl.appendChild(cell);
+  }
+
+  // History
+  document.getElementById('tdNoteQ').value='';
+  document.getElementById('tdNoteResults').style.display='none';
+  renderTaskHistory(_tdLogs);
+  document.getElementById('taskDetailModal').classList.add('open');
+}
+
+function renderTaskHistory(logs) {
+  const el=document.getElementById('tdHistory');
+  if(!logs.length){el.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.7rem;color:var(--muted);padding:10px 0;text-align:center;">No completions yet.</div>';return;}
+  el.innerHTML=logs.slice(0,50).map(l=>`
+    <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:start;padding:6px 0;border-bottom:1px solid rgba(245,240,232,.05);">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:var(--muted);">${fmtDate(l.completed_date)}</div>
+      <div>
+        ${l.completed_by?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.67rem;">👤 ${l.completed_by}</div>`:''}
+        ${l.notes?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:2px;">${l.notes}</div>`:''}
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted);">
+        ${l.completed_at?new Date(l.completed_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}
+      </div>
+    </div>`).join('');
+}
+
+function filterTaskNotes(q) {
+  const res=document.getElementById('tdNoteResults');
+  const hist=document.getElementById('tdHistory');
+  if(!q.trim()){res.style.display='none';hist.style.display='block';return;}
+  hist.style.display='none';res.style.display='block';
+  const matches=_tdLogs.filter(l=>l.notes&&l.notes.toLowerCase().includes(q.toLowerCase()));
+  if(!matches.length){res.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.68rem;color:var(--muted);">No matching notes.</div>';return;}
+  const re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
+  res.innerHTML=matches.map(l=>`<div style="padding:5px 0;border-bottom:1px solid rgba(245,240,232,.05);">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);margin-bottom:2px;">${fmtDate(l.completed_date)}</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;">${l.notes.replace(re,'<mark style="background:rgba(124,58,237,.3);color:var(--text);border-radius:2px;padding:0 2px;">$1</mark>')}</div>
+  </div>`).join('');
+}
+
+function closeTaskDetail(){document.getElementById('taskDetailModal').classList.remove('open');_tdTask=null;_tdLogs=[];}
+function tdMarkDone(){if(!_tdTask)return;closeTaskDetail();openCompleteModal(_tdTask.id,_tdTask.name);}
+function tdEdit(){if(!_tdTask)return;closeTaskDetail();openTaskModal(_tdTask);}
+
+// ══════════════════════════════════════════════════════
+// TASKS CRUD
+// ══════════════════════════════════════════════════════
+function openTaskModal(t) {
+  _editTaskId=t?.id||null;
+  document.getElementById('taskModalTitle').textContent=t?'EDIT TASK':'NEW TASK';
+  document.getElementById('t_name').value=t?.name||'';
+  document.getElementById('t_cat').value=t?.category||'';
+  document.getElementById('t_rec').value=t?.recurrence||'daily';
+  document.getElementById('t_interval').value=t?.interval_days||'';
+  document.getElementById('t_start').value=t?.start_date||todayStr();
+  document.getElementById('t_time').value=t?.due_time||'';
+  document.getElementById('t_notes').value=t?.notes||'';
+  document.getElementById('deleteTaskBtn').style.display=t?'inline-block':'none';
+  toggleIntervalField();
+  document.getElementById('taskModal').classList.add('open');
+  setTimeout(()=>document.getElementById('t_name').focus(),100);
+}
+function closeTaskModal(){document.getElementById('taskModal').classList.remove('open');_editTaskId=null;}
+function toggleIntervalField(){
+  document.getElementById('intervalField').style.display=document.getElementById('t_rec').value==='custom'?'block':'none';
+}
+
+async function saveTask() {
+  if(!sbClient)return;
+  const btn=document.getElementById('saveTaskBtn');
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  const record={
+    name:        document.getElementById('t_name').value.trim(),
+    category:    document.getElementById('t_cat').value||null,
+    recurrence:  document.getElementById('t_rec').value,
+    interval_days:parseInt(document.getElementById('t_interval').value)||null,
+    start_date:  document.getElementById('t_start').value||todayStr(),
+    due_time:    document.getElementById('t_time').value||null,
+    notes:       document.getElementById('t_notes').value.trim()||null,
+    updated_at:  new Date().toISOString(),
+  };
+  if(!record.name){showToast('Name required.','error');btn.innerHTML='SAVE TASK';btn.disabled=false;return;}
+  let error;
+  if(_editTaskId){({error}=await sbClient.from('los_tasks').update(record).eq('id',_editTaskId));}
+  else{record.created_at=new Date().toISOString();({error}=await sbClient.from('los_tasks').insert([record]));}
+  btn.innerHTML='SAVE TASK';btn.disabled=false;
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast(_editTaskId?'Task updated!':'Task created!','success');
+  closeTaskModal();await loadAll();
+}
+
+async function deleteTask() {
+  if(!sbClient||!_editTaskId)return;
+  if(!confirm("Delete this task and all its history?"))return;
+  await sbClient.from('los_task_logs').delete().eq('task_id',_editTaskId);
+  await sbClient.from('los_tasks').delete().eq('id',_editTaskId);
+  showToast('Task deleted.','success');
+  closeTaskModal();await loadAll();
+}
+
+function renderTaskLibrary() {
+  const el=document.getElementById('taskLibrary');
+  if(!el)return;
+  const q=(document.getElementById('taskSearch')?.value||'').toLowerCase();
+  const cf=document.getElementById('taskCatFilter')?.value||'';
+  let tasks=_allTasks;
+  if(q)tasks=tasks.filter(t=>(t.name||'').toLowerCase().includes(q));
+  if(cf)tasks=tasks.filter(t=>t.category===cf);
+  if(!tasks.length){
+    el.innerHTML=`<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);text-align:center;padding:32px 0;">No tasks found. <button class="btn btn-ghost" style="font-size:.7rem;" onclick="openTaskModal()">+ Create one</button></div>`;
+    return;
+  }
+  el.innerHTML='';
+  tasks.forEach(t=>{
+    const color=CAT_COLORS[t.category]||'var(--muted)';
+    const card=document.createElement('div');
+    card.className='task-card';
+    card.onclick=()=>openTaskDetail(t);
+    card.innerHTML=`
+      <div style="display:flex;align-items:start;justify-content:space-between;gap:10px;">
+        <div>
+          <div class="task-name">${t.name}</div>
+          <div class="task-meta">
+            <span style="color:${color};">${t.category||'—'}</span>
+            <span>${RECUR_LABELS[t.recurrence]||t.recurrence}${t.interval_days?' ('+t.interval_days+'d)':''}</span>
+            ${t.due_time?`<span>⏰ ${t.due_time}</span>`:''}
+            ${t.start_date?`<span>from ${fmtDate(t.start_date)}</span>`:''}
+          </div>
+          ${t.notes?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dim);margin-top:5px;">${t.notes}</div>`:''}
+        </div>
+        ${isDoneToday(t.id)?'<span class="badge b-green">✓ TODAY</span>':''}
+      </div>`;
+    el.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// COMPLETE TASK
+// ══════════════════════════════════════════════════════
+function openCompleteModal(taskId, taskName) {
+  _completeTaskId=taskId;_completeTaskName=taskName;
+  document.getElementById('compModalTitle').textContent='DONE: '+taskName;
+  document.getElementById('comp_date').value=todayStr();
+  document.getElementById('comp_by').value='';
+  document.getElementById('comp_notes').value='';
+  document.getElementById('completeModal').classList.add('open');
+}
+function closeCompleteModal(){document.getElementById('completeModal').classList.remove('open');}
+async function saveCompletion() {
+  if(!sbClient||!_completeTaskId)return;
+  const btn=document.getElementById('compSaveBtn');
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  const {error}=await sbClient.from('los_task_logs').insert([{
+    task_id:        _completeTaskId,
+    completed_date: document.getElementById('comp_date').value,
+    completed_by:   document.getElementById('comp_by').value.trim()||null,
+    notes:          document.getElementById('comp_notes').value.trim()||null,
+    completed_at:   new Date().toISOString(),
+  }]);
+  btn.innerHTML='✓ DONE';btn.disabled=false;
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast('Logged! ✓','success');
+  closeCompleteModal();await loadAll();
+}
+
+// ══════════════════════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════════════════════
+function renderCalendar() {
+  const now=new Date();
+  if(!_calYear){_calYear=now.getFullYear();_calMonth=now.getMonth();}
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calTitle').textContent=months[_calMonth]+' '+_calYear;
+
+  const firstDay=new Date(_calYear,_calMonth,1).getDay();
+  const daysInMonth=new Date(_calYear,_calMonth+1,0).getDate();
+  const daysInPrev=new Date(_calYear,_calMonth,0).getDate();
+  const totalCells=Math.ceil((firstDay+daysInMonth)/7)*7;
+  const today=todayStr();
+  const nowDate=new Date();nowDate.setHours(0,0,0,0);
+
+  // Build done-date lookup
+  const doneDates={};
+  _allLogs.forEach(l=>{if(!doneDates[l.task_id])doneDates[l.task_id]=new Set();doneDates[l.task_id].add(l.completed_date);});
+  const doneHabitDates={};
+  _allHabitLogs.forEach(l=>{if(!doneHabitDates[l.habit_id])doneHabitDates[l.habit_id]=new Set();doneHabitDates[l.habit_id].add(l.log_date);});
+
+  const grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+
+  for(let i=0;i<totalCells;i++){
+    let dayNum,ds,isOther=false;
+    if(i<firstDay){
+      dayNum=daysInPrev-firstDay+i+1;
+      const pm=_calMonth-1<0?11:_calMonth-1;
+      const py=_calMonth-1<0?_calYear-1:_calYear;
+      ds=py+'-'+String(pm+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
+      isOther=true;
+    } else if(i>=firstDay+daysInMonth){
+      dayNum=i-firstDay-daysInMonth+1;
+      const nm=_calMonth+1>11?0:_calMonth+1;
+      const ny=_calMonth+1>11?_calYear+1:_calYear;
+      ds=ny+'-'+String(nm+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
+      isOther=true;
+    } else {
+      dayNum=i-firstDay+1;
+      ds=_calYear+'-'+String(_calMonth+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
+    }
+
+    const cell=document.createElement('div');
+    cell.className='cal-day'+(isOther?' other-month':'')+(ds===today?' today':'');
+
+    const dayDate=new Date(ds+'T00:00:00');
+    const isPast=dayDate<nowDate;
+    const isFuture=dayDate>nowDate;
+
+    // Collect events for this day
+    const events=[];
+    _allTasks.forEach(t=>{
+      if(!isTaskDueOn(t,ds))return;
+      const done=(doneDates[t.id]||new Set()).has(ds);
+      let cls,label;
+      if(done){cls='ev-done';label='✓ '+t.name;}
+      else if(isPast){cls='ev-missed';label='✗ '+t.name;}
+      else if(ds===today){cls='ev-upcoming';label='📋 '+t.name;}
+      else{cls='ev-scheduled';label='· '+t.name;}
+      events.push({cls,label,task:t,done,ds});
+    });
+    _allHabits.forEach(h=>{
+      const done=(doneHabitDates[h.id]||new Set()).has(ds);
+      if(!done&&isFuture)return; // don't clutter future with undone habits
+      let cls,label;
+      if(done){cls='ev-done';label='🔥 '+h.name;}
+      else if(isPast){cls='ev-missed';label='○ '+h.name;}
+      else{cls='ev-upcoming';label='🔥 '+h.name;}
+      events.push({cls,label,habit:h,done,ds});
+    });
+
+    cell.innerHTML=`<div class="cal-day-num">${dayNum}</div>`;
+    events.slice(0,4).forEach(ev=>{
+      const badge=document.createElement('div');
+      badge.className='cal-ev '+ev.cls;
+      badge.textContent=ev.label;
+      cell.appendChild(badge);
+    });
+    if(events.length>4){
+      const more=document.createElement('div');
+      more.style.cssText='font-family:IBM Plex Mono,monospace;font-size:.48rem;color:var(--muted);';
+      more.textContent='+' +(events.length-4)+' more';
+      cell.appendChild(more);
+    }
+
+    cell.onclick=()=>openDayModal(ds,events);
+    grid.appendChild(cell);
+  }
+}
+
+function shiftCal(dir){
+  _calMonth+=dir;
+  if(_calMonth>11){_calMonth=0;_calYear++;}
+  if(_calMonth<0){_calMonth=11;_calYear--;}
+  renderCalendar();
+}
+function goCalToday(){const n=new Date();_calYear=n.getFullYear();_calMonth=n.getMonth();renderCalendar();}
+
+// Day detail modal
+function openDayModal(ds, events) {
+  document.getElementById('dayModalTitle').textContent=fmtDate(ds);
+  document.getElementById('dayModalSub').textContent=events.length+' item'+(events.length!==1?'s':'');
+  const list=document.getElementById('dayModalList');
+  const today=todayStr();
+  const isPast=new Date(ds+'T00:00:00')<new Date(today+'T00:00:00');
+
+  if(!events.length){
+    list.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.7rem;color:var(--muted);text-align:center;padding:16px 0;">Nothing scheduled this day.</div>';
+  } else {
+    list.innerHTML='';
+    events.forEach(ev=>{
+      const div=document.createElement('div');
+      div.style.cssText=`background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;`;
+      const statusColor=ev.done?'var(--green)':isPast?'var(--red)':'#a78bfa';
+      div.innerHTML=`
+        <div>
+          <div style="font-weight:600;font-size:.85rem;margin-bottom:2px;">${ev.task?.name||ev.habit?.name||''}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:${statusColor};">${ev.done?'✓ Completed':isPast?'✗ Missed':'Upcoming'}</div>
+        </div>
+        ${ev.task&&!ev.done&&!isPast?`<button class="btn btn-primary" style="font-size:.65rem;padding:5px 10px;" onclick="closeDayModal();openCompleteModal('${ev.task.id}','${ev.task.name.replace(/'/g,"\\'")}')">LOG</button>`:''}
+        ${ev.habit&&!ev.done&&ds===today?`<button class="btn btn-primary" style="font-size:.65rem;padding:5px 10px;" onclick="closeDayModal();logHabitToday(${JSON.stringify(ev.habit).replace(/"/g,'&quot;')})">LOG</button>`:''}`;
+      list.appendChild(div);
+    });
+  }
+  document.getElementById('dayModal').classList.add('open');
+}
+function closeDayModal(){document.getElementById('dayModal').classList.remove('open');}
+
+// ══════════════════════════════════════════════════════
+// HABITS
+// ══════════════════════════════════════════════════════
+function openHabitModal(h) {
+  _editHabitId=h?.id||null;
+  document.getElementById('habitModalTitle').textContent=h?'EDIT HABIT':'NEW HABIT';
+  document.getElementById('h_name').value=h?.name||'';
+  document.getElementById('h_cat').value=h?.category||'';
+  document.getElementById('h_target').value=h?.weekly_target||7;
+  document.getElementById('h_notes').value=h?.notes||'';
+  document.getElementById('deleteHabitBtn').style.display=h?'inline-block':'none';
+  document.getElementById('habitModal').classList.add('open');
+}
+function closeHabitModal(){document.getElementById('habitModal').classList.remove('open');_editHabitId=null;}
+
+async function saveHabit() {
+  if(!sbClient)return;
+  const btn=document.getElementById('saveHabitBtn');
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  const record={
+    name:          document.getElementById('h_name').value.trim(),
+    category:      document.getElementById('h_cat').value||null,
+    weekly_target: parseInt(document.getElementById('h_target').value)||7,
+    notes:         document.getElementById('h_notes').value.trim()||null,
+    updated_at:    new Date().toISOString(),
+  };
+  if(!record.name){showToast('Name required.','error');btn.innerHTML='SAVE';btn.disabled=false;return;}
+  let error;
+  if(_editHabitId){({error}=await sbClient.from('los_habits').update(record).eq('id',_editHabitId));}
+  else{record.created_at=new Date().toISOString();({error}=await sbClient.from('los_habits').insert([record]));}
+  btn.innerHTML='SAVE';btn.disabled=false;
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast(_editHabitId?'Habit updated!':'Habit added!','success');
+  closeHabitModal();await loadAll();
+}
+
+async function deleteHabit() {
+  if(!sbClient||!_editHabitId)return;
+  if(!confirm("Delete this habit?"))return;
+  await sbClient.from('los_habit_logs').delete().eq('habit_id',_editHabitId);
+  await sbClient.from('los_habits').delete().eq('id',_editHabitId);
+  showToast('Habit deleted.','success');
+  closeHabitModal();await loadAll();
+}
+
+async function logHabitToday(habit) {
+  if(!sbClient)return;
+  const today=todayStr();
+  // Check if already logged
+  if(_allHabitLogs.some(l=>l.habit_id===habit.id&&l.log_date===today)){
+    showToast('Already logged today!','error');return;
+  }
+  const {error}=await sbClient.from('los_habit_logs').insert([{
+    habit_id:   habit.id,
+    log_date:   today,
+    logged_at:  new Date().toISOString(),
+  }]);
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast('Habit logged! 🔥','success');
+  await loadAll();
+}
+
+function renderHabits() {
+  const el=document.getElementById('habitList');
+  if(!el)return;
+  if(!_allHabits.length){
+    el.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);text-align:center;padding:32px 0;">No habits yet. Click + NEW HABIT to start tracking.</div>';
+    return;
+  }
+  el.innerHTML='';
+  _allHabits.forEach(h=>{
+    const color=CAT_COLORS[h.category]||'var(--muted)';
+    const streak=calcHabitStreak(h);
+    const today=todayStr();
+    const doneToday=_allHabitLogs.some(l=>l.habit_id===h.id&&l.log_date===today);
+    // 30-day completion
+    let done30=0;
+    for(let i=0;i<30;i++){const d=new Date();d.setDate(d.getDate()-i);if(_allHabitLogs.some(l=>l.habit_id===h.id&&l.log_date===dateStr(d)))done30++;}
+    const rate=Math.round(done30/30*100);
+    // Mini heatmap 14d
+    let miniHeat='';
+    for(let i=13;i>=0;i--){
+      const d=new Date();d.setDate(d.getDate()-i);
+      const ds=dateStr(d);
+      const done=_allHabitLogs.some(l=>l.habit_id===h.id&&l.log_date===ds);
+      miniHeat+=`<div style="width:12px;height:12px;border-radius:2px;background:${done?'var(--green)':'rgba(245,240,232,.05)'};"></div>`;
+    }
+    const card=document.createElement('div');
+    card.className='habit-card';
+    card.innerHTML=`
+      <div style="display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;margin-bottom:3px;">${h.name}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;display:flex;gap:8px;">
+            ${h.category?`<span style="color:${color};">${h.category}</span>`:''}
+            <span style="color:var(--muted);">Target: ${h.weekly_target||7}×/week</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          ${streak>0?`<div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:${streak>=7?'var(--green)':'var(--yellow)'};">🔥${streak}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:var(--muted);">day streak</div>`:''}
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:${rate>=80?'var(--green)':rate>=50?'var(--yellow)':'var(--red)'};">${rate}%</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:var(--muted);">30d rate</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:2px;margin-bottom:10px;">${miniHeat}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${doneToday
+          ?'<span class="badge b-green">✓ DONE TODAY</span>'
+          :`<button class="btn btn-primary" style="font-size:.68rem;padding:6px 12px;" onclick="event.stopPropagation();logHabitToday(${JSON.stringify(h).replace(/"/g,'&quot;')})">✓ LOG TODAY</button>`}
+        <button class="btn btn-ghost" style="font-size:.65rem;padding:5px 10px;" onclick="event.stopPropagation();openHabitModal(${JSON.stringify(h).replace(/"/g,'&quot;')})">✏ EDIT</button>
+      </div>`;
+    el.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// JOURNAL
+// ══════════════════════════════════════════════════════
+function openJournalModal(j) {
+  _editJournalId=j?.id||null;
+  document.getElementById('journalModalTitle').textContent=j?'EDIT ENTRY':'NEW ENTRY';
+  document.getElementById('j_date').value=j?.entry_date||todayStr();
+  document.getElementById('j_mood').value=j?.mood||'';
+  document.getElementById('j_body').value=j?.body||'';
+  document.getElementById('deleteJournalBtn').style.display=j?'inline-block':'none';
+  document.getElementById('journalModal').classList.add('open');
+  setTimeout(()=>document.getElementById('j_body').focus(),100);
+}
+function closeJournalModal(){document.getElementById('journalModal').classList.remove('open');_editJournalId=null;}
+
+async function saveJournal() {
+  if(!sbClient)return;
+  const btn=document.getElementById('saveJournalBtn');
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  const record={
+    entry_date:  document.getElementById('j_date').value||todayStr(),
+    mood:        document.getElementById('j_mood').value||null,
+    body:        document.getElementById('j_body').value.trim(),
+    updated_at:  new Date().toISOString(),
+  };
+  if(!record.body){showToast('Write something first!','error');btn.innerHTML='SAVE ENTRY';btn.disabled=false;return;}
+  let error;
+  if(_editJournalId){({error}=await sbClient.from('los_journal').update(record).eq('id',_editJournalId));}
+  else{record.created_at=new Date().toISOString();({error}=await sbClient.from('los_journal').insert([record]));}
+  btn.innerHTML='SAVE ENTRY';btn.disabled=false;
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast('Entry saved!','success');
+  closeJournalModal();await loadAll();
+}
+
+async function deleteJournal() {
+  if(!sbClient||!_editJournalId)return;
+  if(!confirm("Delete this journal entry?"))return;
+  await sbClient.from('los_journal').delete().eq('id',_editJournalId);
+  showToast('Entry deleted.','success');
+  closeJournalModal();await loadAll();
+}
+
+function renderJournal() {
+  const el=document.getElementById('journalList');
+  if(!el)return;
+  if(!_allJournals.length){
+    el.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.72rem;color:var(--muted);text-align:center;padding:32px 0;">No journal entries yet. Click + NEW ENTRY to write your first one.</div>';
+    return;
+  }
+  el.innerHTML='';
+  _allJournals.forEach(j=>{
+    const div=document.createElement('div');
+    div.className='journal-entry';
+    div.style.cursor='pointer';
+    div.onclick=()=>openJournalModal(j);
+    div.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="journal-date">${fmtDate(j.entry_date)} ${j.mood?MOOD_ICONS[j.mood]||'':''}</div>
+        ${j.mood?`<span style="font-size:1.2rem;">${MOOD_ICONS[j.mood]||''}</span>`:''}
+      </div>
+      <div class="journal-body">${j.body.slice(0,280)}${j.body.length>280?'…':''}</div>`;
+    el.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+let _toastTimer;
+function showToast(msg, type='success') {
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show '+(type==='error'?'error':'success');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>{el.className='';},3000);
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const url=localStorage.getItem('lifeos_url');
+  const key=localStorage.getItem('lifeos_key');
+  if(url&&key){
+    initSupabase(url,key);
+    document.getElementById('configModal').style.display='none';
+    loadAll();
+  } else {
+    document.getElementById('configModal').style.display='flex';
+  }
+  // Update date
+  const now=new Date();
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('sidebarDate').textContent=days[now.getDay()];
+});
+</script>
+</body>
+</html>
