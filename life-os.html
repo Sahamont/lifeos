@@ -462,7 +462,10 @@ select option{background:var(--surface);}
       <button class="modal-close" onclick="closeCompleteModal()">✕</button>
     </div>
     <div class="field"><label>Completed By (optional)</label><input type="text" id="comp_by" placeholder="Your name" /></div>
-    <div class="field"><label>Date</label><input type="date" id="comp_date" /></div>
+    <div class="field-row" style="grid-template-columns:1fr 1fr;">
+      <div class="field"><label>Date</label><input type="date" id="comp_date" /></div>
+      <div class="field"><label>Time</label><input type="time" id="comp_time" /></div>
+    </div>
     <div class="field"><label>Notes (optional)</label><textarea id="comp_notes" rows="2" placeholder="Any notes about this completion…"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeCompleteModal()">CANCEL</button>
@@ -697,8 +700,13 @@ function renderToday() {
     taskEl.innerHTML = '';
     dueTasks.forEach(t => {
       const done = doneTasks.has(t.id);
+      // Check if overdue from previous days
+      const isOverdue = !done && (() => {
+        for(let i=1;i<=30;i++){const d=new Date();d.setDate(d.getDate()-i);const ds=dateStr(d);if(isTaskDueOn(t,ds)&&!_allLogs.some(l=>l.task_id===t.id&&l.completed_date===ds))return true;if(isTaskDueOn(t,ds))break;}return false;
+      })();
       const div  = document.createElement('div');
       div.className = 'quick-check'+(done?' checked':'');
+      if(!done) div.style.borderLeft = isOverdue ? '3px solid var(--red)' : '3px solid var(--accent)';
       div.onclick   = () => done ? null : openCompleteModal(t.id, t.name);
       const color   = CAT_COLORS[t.category]||'var(--muted)';
       div.innerHTML = `
@@ -1084,13 +1092,16 @@ function renderTaskLibrary() {
   el.innerHTML='';
   tasks.forEach(t=>{
     const color=CAT_COLORS[t.category]||'var(--muted)';
+    // Overdue check — missed any scheduled day in last 7 days
+    let _tOverdue=false, _tDone=isDoneToday(t.id);
+    if(!_tDone){for(let _i=1;_i<=7;_i++){const _d=new Date();_d.setDate(_d.getDate()-_i);const _ds=dateStr(_d);if(isTaskDueOn(t,_ds)&&!_allLogs.some(l=>l.task_id===t.id&&l.completed_date===_ds)){_tOverdue=true;break;}if(isTaskDueOn(t,_ds))break;}}
     const card=document.createElement('div');
-    card.className='task-card';
+    card.className='task-card'+(_tDone?' done-today':_tOverdue?' overdue':'');
     card.onclick=()=>openTaskDetail(t);
     card.innerHTML=`
       <div style="display:flex;align-items:start;justify-content:space-between;gap:10px;">
         <div>
-          <div class="task-name">${t.name}</div>
+          <div class="task-name" style="${_tOverdue&&!_tDone?'color:var(--red);':''}">${_tOverdue&&!_tDone?'⚠ ':''}${t.name}</div>
           <div class="task-meta">
             <span style="color:${color};">${t.category||'—'}</span>
             <span>${RECUR_LABELS[t.recurrence]||t.recurrence}${t.interval_days?' ('+t.interval_days+'d)':''}</span>
@@ -1099,7 +1110,7 @@ function renderTaskLibrary() {
           </div>
           ${t.notes?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dim);margin-top:5px;">${t.notes}</div>`:''}
         </div>
-        ${isDoneToday(t.id)?'<span class="badge b-green">✓ TODAY</span>':''}
+        ${_tDone?'<span class="badge b-green">✓ TODAY</span>':_tOverdue?'<span class="badge b-red">OVERDUE</span>':''}
       </div>`;
     el.appendChild(card);
   });
@@ -1112,6 +1123,8 @@ function openCompleteModal(taskId, taskName) {
   _completeTaskId=taskId;_completeTaskName=taskName;
   document.getElementById('compModalTitle').textContent='DONE: '+taskName;
   document.getElementById('comp_date').value=todayStr();
+  const _now=new Date();
+  document.getElementById('comp_time').value=String(_now.getHours()).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');
   document.getElementById('comp_by').value='';
   document.getElementById('comp_notes').value='';
   document.getElementById('completeModal').classList.add('open');
@@ -1121,12 +1134,18 @@ async function saveCompletion() {
   if(!sbClient||!_completeTaskId)return;
   const btn=document.getElementById('compSaveBtn');
   btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  const _compDate = document.getElementById('comp_date').value;
+  const _compTime = document.getElementById('comp_time').value;
+  // Build a proper timestamp from date + time fields
+  const _compAt = _compDate && _compTime
+    ? new Date(_compDate+'T'+_compTime+':00').toISOString()
+    : new Date().toISOString();
   const {error}=await sbClient.from('los_task_logs').insert([{
     task_id:        _completeTaskId,
-    completed_date: document.getElementById('comp_date').value,
+    completed_date: _compDate,
     completed_by:   document.getElementById('comp_by').value.trim()||null,
     notes:          document.getElementById('comp_notes').value.trim()||null,
-    completed_at:   new Date().toISOString(),
+    completed_at:   _compAt,
   }]);
   btn.innerHTML='✓ DONE';btn.disabled=false;
   if(error){showToast('Error: '+error.message,'error');return;}
