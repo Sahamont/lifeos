@@ -1125,7 +1125,7 @@ function openCompleteModal(taskId, taskName) {
   document.getElementById('comp_date').value=todayStr();
   const _now=new Date();
   document.getElementById('comp_time').value=String(_now.getHours()).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');
-  document.getElementById('comp_by').value='';
+  document.getElementById('comp_by').value='Chris';
   document.getElementById('comp_notes').value='';
   document.getElementById('completeModal').classList.add('open');
 }
