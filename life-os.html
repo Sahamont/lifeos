@@ -254,7 +254,7 @@ select option{background:var(--surface);}
         <span class="nav-icon">📓</span>JOURNAL
       </div>
       <div class="nav-section">System</div>
-      <div class="nav-item" onclick="showConfig()" id="nav-settings">
+      <div class="nav-item" onclick="switchPane('settings')" id="nav-settings">
         <span class="nav-icon">⚙</span>SETTINGS
       </div>
     </div>
@@ -372,6 +372,60 @@ select option{background:var(--surface);}
         <button class="btn btn-primary" onclick="openJournalModal()">+ NEW ENTRY</button>
       </div>
       <div id="journalList"></div>
+    </div>
+
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="pane" id="pane-settings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">SETTINGS</div>
+          <div class="page-sub">Personalize your Life OS</div>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="section-title">PROFILE</div>
+        <div class="field">
+          <label>Your Name</label>
+          <input type="text" id="set_username" placeholder="Chris" />
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:5px;">Used as default in completion logs</div>
+        </div>
+        <div class="field">
+          <label>Daily Start Time</label>
+          <input type="time" id="set_start_time" value="06:00" />
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:5px;">When your day starts — affects overdue detection</div>
+        </div>
+        <button class="btn btn-primary" onclick="saveUserSettings()" style="margin-top:4px;">SAVE PROFILE</button>
+      </div>
+
+      <!-- Supabase connection -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="section-title">DATABASE CONNECTION</div>
+        <div id="connStatus" style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;margin-bottom:12px;"></div>
+        <div class="field">
+          <label>Supabase Project URL</label>
+          <input type="text" id="set_url" placeholder="https://xxxx.supabase.co" />
+        </div>
+        <div class="field">
+          <label>Anon Public Key</label>
+          <input type="text" id="set_key" placeholder="eyJhbGciOiJIUzI1NiIs..." />
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:4px;">UPDATE CONNECTION</button>
+      </div>
+
+      <!-- About -->
+      <div class="card">
+        <div class="section-title">ABOUT</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--muted);line-height:1.8;">
+          <div>Version: <span style="color:var(--text);">1.0</span></div>
+          <div>Tasks: <span style="color:var(--text);" id="set_task_count">—</span></div>
+          <div>Habits: <span style="color:var(--text);" id="set_habit_count">—</span></div>
+          <div>Journal entries: <span style="color:var(--text);" id="set_journal_count">—</span></div>
+          <div>Completions logged: <span style="color:var(--text);" id="set_log_count">—</span></div>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -565,6 +619,9 @@ select option{background:var(--surface);}
   <div class="bnav-item" id="bnav-journal" onclick="switchPane('journal')">
     <div class="bnav-icon">📓</div><div>JOURNAL</div>
   </div>
+  <div class="bnav-item" id="bnav-settings" onclick="switchPane('settings')">
+    <div class="bnav-icon">⚙</div><div>SETTINGS</div>
+  </div>
 </div>
 
 <script>
@@ -602,13 +659,17 @@ function dateStr(d) {
 
 // ── Config ────────────────────────────────────────────
 function saveConfig() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  const key = document.getElementById('cfgKey').value.trim();
+  // Read from whichever inputs are visible (config modal or settings pane)
+  const urlEl = document.getElementById('set_url');
+  const keyEl = document.getElementById('set_key');
+  const url = (urlEl?.value.trim() || document.getElementById('cfgUrl').value.trim());
+  const key = (keyEl?.value.trim() || document.getElementById('cfgKey').value.trim());
   if (!url||!key) { alert('Both fields required.'); return; }
   localStorage.setItem('lifeos_url', url);
   localStorage.setItem('lifeos_key', key);
   initSupabase(url, key);
   document.getElementById('configModal').style.display = 'none';
+  showToast('Connection saved!', 'success');
   loadAll();
 }
 function showConfig() {
@@ -635,6 +696,7 @@ function switchPane(name) {
   if (name==='tasks')     renderTaskLibrary();
   if (name==='habits')    renderHabits();
   if (name==='journal')   renderJournal();
+  if (name==='settings')  openSettingsPane();
 }
 
 // ── Load all data ─────────────────────────────────────
@@ -1125,7 +1187,7 @@ function openCompleteModal(taskId, taskName) {
   document.getElementById('comp_date').value=todayStr();
   const _now=new Date();
   document.getElementById('comp_time').value=String(_now.getHours()).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');
-  document.getElementById('comp_by').value='Chris';
+  document.getElementById('comp_by').value=localStorage.getItem('lifeos_username')||'';
   document.getElementById('comp_notes').value='';
   document.getElementById('completeModal').classList.add('open');
 }
@@ -1462,6 +1524,49 @@ function renderJournal() {
       <div class="journal-body">${j.body.slice(0,280)}${j.body.length>280?'…':''}</div>`;
     el.appendChild(div);
   });
+}
+
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+function openSettingsPane() {
+  // Populate fields from localStorage
+  document.getElementById('set_username').value  = localStorage.getItem('lifeos_username') || '';
+  document.getElementById('set_start_time').value = localStorage.getItem('lifeos_start_time') || '06:00';
+  document.getElementById('set_url').value = localStorage.getItem('lifeos_url') || '';
+  // Mask the key
+  const key = localStorage.getItem('lifeos_key') || '';
+  document.getElementById('set_key').value = key ? key.slice(0,20)+'••••••••••••' : '';
+
+  // Connection status
+  const connEl = document.getElementById('connStatus');
+  if (connEl) {
+    const url = localStorage.getItem('lifeos_url') || '';
+    const project = url ? url.replace('https://','').split('.')[0] : '';
+    connEl.innerHTML = sbClient
+      ? `<span style="color:var(--green);">● Connected</span> <span style="color:var(--muted);margin-left:8px;">Project: ${project}</span>`
+      : '<span style="color:var(--red);">● Not connected</span>';
+  }
+
+  // Stats
+  const tc = document.getElementById('set_task_count');
+  const hc = document.getElementById('set_habit_count');
+  const jc = document.getElementById('set_journal_count');
+  const lc = document.getElementById('set_log_count');
+  if (tc) tc.textContent = _allTasks.length;
+  if (hc) hc.textContent = _allHabits.length;
+  if (jc) jc.textContent = _allJournals.length;
+  if (lc) lc.textContent = _allLogs.length + ' (last 30d)';
+}
+
+function saveUserSettings() {
+  const name      = document.getElementById('set_username').value.trim();
+  const startTime = document.getElementById('set_start_time').value;
+  if (name) localStorage.setItem('lifeos_username', name);
+  else localStorage.removeItem('lifeos_username');
+  if (startTime) localStorage.setItem('lifeos_start_time', startTime);
+  showToast('Profile saved! ✓', 'success');
 }
 
 // ══════════════════════════════════════════════════════
