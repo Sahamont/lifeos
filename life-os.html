@@ -1155,8 +1155,8 @@ function filterTaskNotes(q) {
 }
 
 function closeTaskDetail(){document.getElementById('taskDetailModal').classList.remove('open');_tdTask=null;_tdLogs=[];}
-function tdMarkDone(){if(!_tdTask)return;closeTaskDetail();openCompleteModal(_tdTask.id,_tdTask.name);}
-function tdEdit(){if(!_tdTask)return;closeTaskDetail();openTaskModal(_tdTask);}
+function tdMarkDone(){if(!_tdTask)return;const t=_tdTask;closeTaskDetail();openCompleteModal(t.id,t.name);}
+function tdEdit(){if(!_tdTask)return;const t=_tdTask;closeTaskDetail();openTaskModal(t);}
 
 // ══════════════════════════════════════════════════════
 // TASKS CRUD
