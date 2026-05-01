@@ -253,6 +253,10 @@ select option{background:var(--surface);}
       <div class="nav-item" onclick="switchPane('journal')" id="nav-journal">
         <span class="nav-icon">📓</span>JOURNAL
       </div>
+      <div class="nav-section">Review</div>
+      <div class="nav-item" onclick="switchPane('weekly')" id="nav-weekly">
+        <span class="nav-icon">📋</span>WEEKLY REVIEW
+      </div>
       <div class="nav-section">System</div>
       <div class="nav-item" onclick="switchPane('settings')" id="nav-settings">
         <span class="nav-icon">⚙</span>SETTINGS
@@ -375,6 +379,21 @@ select option{background:var(--surface);}
     </div>
 
 
+    <!-- ══ WEEKLY REVIEW ══ -->
+    <div class="pane" id="pane-weekly">
+      <div class="page-header">
+        <div>
+          <div class="page-title">WEEKLY REVIEW</div>
+          <div class="page-sub" id="weeklyDateRange">Last 7 days</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="renderWeeklyReview()">↺ REFRESH</button>
+          <button class="btn btn-secondary" onclick="exportWeeklyReport()">⬇ EXPORT PDF</button>
+        </div>
+      </div>
+      <div id="weeklyContent"></div>
+    </div>
+
     <!-- ══ SETTINGS ══ -->
     <div class="pane" id="pane-settings">
       <div class="page-header">
@@ -419,7 +438,7 @@ select option{background:var(--surface);}
       <div class="card">
         <div class="section-title">ABOUT</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--muted);line-height:1.8;">
-          <div>Version: <span style="color:var(--text);">1.0</span></div>
+          <div>Version: <span style="color:var(--text);">1.1</span></div>
           <div>Tasks: <span style="color:var(--text);" id="set_task_count">—</span></div>
           <div>Habits: <span style="color:var(--text);" id="set_habit_count">—</span></div>
           <div>Journal entries: <span style="color:var(--text);" id="set_journal_count">—</span></div>
@@ -616,6 +635,9 @@ select option{background:var(--surface);}
   <div class="bnav-item" id="bnav-habits" onclick="switchPane('habits')">
     <div class="bnav-icon">🔥</div><div>HABITS</div>
   </div>
+  <div class="bnav-item" id="bnav-weekly" onclick="switchPane('weekly')">
+    <div class="bnav-icon">📋</div><div>REVIEW</div>
+  </div>
   <div class="bnav-item" id="bnav-journal" onclick="switchPane('journal')">
     <div class="bnav-icon">📓</div><div>JOURNAL</div>
   </div>
@@ -698,6 +720,7 @@ function switchPane(name) {
   if (name==='habits')    renderHabits();
   if (name==='journal')   renderJournal();
   if (name==='settings')  openSettingsPane();
+  if (name==='weekly')    renderWeeklyReview();
 }
 
 // ── Load all data ─────────────────────────────────────
@@ -722,6 +745,7 @@ async function loadAll() {
   if (_currentPane==='tasks')     renderTaskLibrary();
   if (_currentPane==='habits')    renderHabits();
   if (_currentPane==='journal')   renderJournal();
+  if (_currentPane==='weekly')    renderWeeklyReview();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1053,16 +1077,17 @@ async function openTaskDetail(task) {
 function renderTaskHistory(logs) {
   const el=document.getElementById('tdHistory');
   if(!logs.length){el.innerHTML='<div style="font-family:IBM Plex Mono,monospace;font-size:.7rem;color:var(--muted);padding:10px 0;text-align:center;">No completions yet.</div>';return;}
-  el.innerHTML=logs.slice(0,50).map(l=>`
-    <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:start;padding:6px 0;border-bottom:1px solid rgba(245,240,232,.05);">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:var(--muted);">${fmtDate(l.completed_date)}</div>
-      <div>
-        ${l.completed_by?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.67rem;">👤 ${l.completed_by}</div>`:''}
-        ${l.notes?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:2px;">${l.notes}</div>`:''}
+  el.innerHTML=logs.slice(0,60).map(l=>`
+    <div style="padding:8px 0;border-bottom:1px solid rgba(245,240,232,.05);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:${l.notes?'5px':'0'};">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:var(--accent);">${fmtDate(l.completed_date)}</span>
+          ${l.completed_at?`<span style="font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--dim);">@ ${new Date(l.completed_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+          ${l.completed_by?`<span style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:var(--muted);">👤 ${l.completed_by}</span>`:''}
+        </div>
+        <span class="badge b-green" style="font-size:.5rem;">✓</span>
       </div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted);">
-        ${l.completed_at?new Date(l.completed_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}
-      </div>
+      ${l.notes?`<div style="background:rgba(29,78,216,.07);border-left:2px solid var(--accent-30);border-radius:0 3px 3px 0;padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:.65rem;color:var(--muted);line-height:1.5;">📝 ${l.notes}</div>`:''}
     </div>`).join('');
 }
 
@@ -1527,6 +1552,311 @@ function renderJournal() {
   });
 }
 
+
+// ══════════════════════════════════════════════════════
+// WEEKLY REVIEW
+// ══════════════════════════════════════════════════════
+function renderWeeklyReview() {
+  const el = document.getElementById('weeklyContent');
+  if (!el) return;
+
+  // Date range: last 7 days (today inclusive)
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    days7.push(dateStr(d));
+  }
+  const startStr = days7[0], endStr = days7[6];
+  const rangeEl = document.getElementById('weeklyDateRange');
+  if (rangeEl) rangeEl.textContent = fmtDate(startStr) + ' — ' + fmtDate(endStr);
+
+  // ── Task completion this week ──
+  const taskStats = _allTasks.map(t => {
+    const expected = days7.filter(d => isTaskDueOn(t, d)).length;
+    if (!expected) return null;
+    const done = days7.filter(d => _allLogs.some(l => l.task_id === t.id && l.completed_date === d)).length;
+    const rate = Math.round(done / expected * 100);
+    return { task: t, expected, done, rate };
+  }).filter(Boolean).sort((a, b) => b.rate - a.rate);
+
+  const totalExp  = taskStats.reduce((s, r) => s + r.expected, 0);
+  const totalDone = taskStats.reduce((s, r) => s + r.done, 0);
+  const overallRate = totalExp > 0 ? Math.round(totalDone / totalExp * 100) : 100;
+  const rateColor = overallRate >= 80 ? 'var(--green)' : overallRate >= 50 ? 'var(--yellow)' : 'var(--red)';
+
+  // ── Habit stats ──
+  const habitStats = _allHabits.map(h => {
+    const done = days7.filter(d => _allHabitLogs.some(l => l.habit_id === h.id && l.log_date === d)).length;
+    return { habit: h, done, streak: calcHabitStreak(h) };
+  });
+  const totalHabitDone = habitStats.reduce((s, h) => s + h.done, 0);
+  const totalHabitPoss = habitStats.length * 7;
+
+  // ── Mood trend ──
+  const MOOD_RANK = { great: 5, good: 4, okay: 3, rough: 2, bad: 1 };
+  const weekJournals = _allJournals.filter(j => j.entry_date >= startStr && j.entry_date <= endStr)
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+  const moodEntries = weekJournals.filter(j => j.mood);
+  const avgMood = moodEntries.length
+    ? (moodEntries.reduce((s, j) => s + (MOOD_RANK[j.mood] || 3), 0) / moodEntries.length).toFixed(1)
+    : null;
+  const moodColor = avgMood >= 4 ? 'var(--green)' : avgMood >= 3 ? 'var(--yellow)' : 'var(--red)';
+
+  // ── Best & worst performers ──
+  const perfects = taskStats.filter(r => r.rate === 100);
+  const missed   = taskStats.filter(r => r.rate === 0);
+  const partial  = taskStats.filter(r => r.rate > 0 && r.rate < 100);
+
+  // ── Build HTML ──
+  el.innerHTML = '';
+
+  // Stat row
+  el.innerHTML += `
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-val" style="color:${rateColor};">${overallRate}%</div><div class="stat-lbl">TASK RATE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green);">${totalDone}</div><div class="stat-lbl">TASKS DONE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--cyan);">${totalHabitDone}/${totalHabitPoss}</div><div class="stat-lbl">HABITS LOGGED</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent);">${weekJournals.length}</div><div class="stat-lbl">JOURNAL ENTRIES</div></div>
+    ${avgMood !== null ? `<div class="stat-card"><div class="stat-val" style="color:${moodColor};">${avgMood}/5</div><div class="stat-lbl">AVG MOOD</div></div>` : ''}
+  </div>`;
+
+  // Day-by-day grid
+  el.innerHTML += `<div class="section-title" style="margin-bottom:10px;">DAY-BY-DAY BREAKDOWN</div>`;
+  let dayGrid = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:20px;">';
+  days7.forEach(ds => {
+    const dayTasks = _allTasks.filter(t => isTaskDueOn(t, ds));
+    const dayDone  = dayTasks.filter(t => _allLogs.some(l => l.task_id === t.id && l.completed_date === ds)).length;
+    const dayHabitsDone = _allHabits.filter(h => _allHabitLogs.some(l => l.habit_id === h.id && l.log_date === ds)).length;
+    const dayRate  = dayTasks.length > 0 ? Math.round(dayDone / dayTasks.length * 100) : null;
+    const dayMoodJ = weekJournals.find(j => j.entry_date === ds);
+    const dc       = dayRate === null ? 'var(--muted)' : dayRate >= 80 ? 'var(--green)' : dayRate >= 50 ? 'var(--yellow)' : 'var(--red)';
+    const isToday  = ds === todayStr();
+    const [,mm,dd] = ds.split('-');
+    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(ds+'T00:00:00').getDay()];
+    dayGrid += `<div style="background:var(--s2);border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-radius:4px;padding:8px 6px;text-align:center;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:${isToday?'var(--accent)':'var(--muted)'};">${dow.toUpperCase()}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${isToday?'var(--accent)':'var(--text)'};">${parseInt(dd)}</div>
+      ${dayRate !== null ? `<div style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:${dc};">${dayRate}%</div>` : '<div style="color:var(--dim);font-size:.7rem;">—</div>'}
+      ${dayHabitsDone > 0 ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:.5rem;color:var(--cyan);">🔥${dayHabitsDone}h</div>` : ''}
+      ${dayMoodJ ? `<div style="font-size:.85rem;margin-top:2px;">${MOOD_ICONS[dayMoodJ.mood]||''}</div>` : ''}
+    </div>`;
+  });
+  dayGrid += '</div>';
+  el.innerHTML += dayGrid;
+
+  // Task breakdown
+  if (taskStats.length) {
+    el.innerHTML += `<div class="section-title" style="margin-bottom:10px;">TASK BREAKDOWN</div>`;
+    let taskRows = '<div style="margin-bottom:20px;">';
+    taskStats.forEach(r => {
+      const color = CAT_COLORS[r.task.category] || 'var(--muted)';
+      const rc    = r.rate >= 80 ? 'var(--green)' : r.rate >= 50 ? 'var(--yellow)' : 'var(--red)';
+      // Completion notes from this week
+      const weekNotes = _allLogs.filter(l => l.task_id === r.task.id && days7.includes(l.completed_date) && l.notes)
+        .map(l => `<div style="font-size:.58rem;color:var(--dim);margin-top:1px;">📝 ${fmtDate(l.completed_date)}: ${l.notes}</div>`).join('');
+      taskRows += `
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:10px 13px;margin-bottom:6px;cursor:pointer;" onclick="openTaskDetail(${JSON.stringify(r.task).replace(/"/g,'&quot;')})">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.task.name}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:${color};">${r.task.category||''}</div>
+            ${weekNotes}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);">${r.done}/${r.expected}</div>
+            <div style="width:80px;">
+              <div class="progress-bar"><div class="progress-fill" style="width:${r.rate}%;background:${rc};"></div></div>
+            </div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${rc};min-width:36px;text-align:right;">${r.rate}%</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    taskRows += '</div>';
+    el.innerHTML += taskRows;
+  }
+
+  // Habits this week
+  if (habitStats.length) {
+    el.innerHTML += `<div class="section-title" style="margin-bottom:10px;">HABITS THIS WEEK</div>`;
+    let habitRows = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:20px;">';
+    habitStats.forEach(h => {
+      const rate = Math.round(h.done / 7 * 100);
+      const rc   = rate >= 71 ? 'var(--green)' : rate >= 42 ? 'var(--yellow)' : 'var(--red)';
+      habitRows += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:11px 13px;">
+        <div style="font-weight:600;font-size:.82rem;margin-bottom:3px;">${h.habit.name}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:8px;">🔥 ${h.streak}d streak · ${h.done}/7 days</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${rate}%;background:${rc};"></div></div>
+      </div>`;
+    });
+    habitRows += '</div>';
+    el.innerHTML += habitRows;
+  }
+
+  // Journal entries this week
+  if (weekJournals.length) {
+    el.innerHTML += `<div class="section-title" style="margin-bottom:10px;">JOURNAL ENTRIES THIS WEEK</div>`;
+    let jHtml = '<div style="margin-bottom:20px;">';
+    weekJournals.forEach(j => {
+      jHtml += `<div class="journal-entry" style="cursor:pointer;" onclick="openJournalModal(${JSON.stringify(j).replace(/"/g,'&quot;')})">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="journal-date">${fmtDate(j.entry_date)} ${j.mood ? MOOD_ICONS[j.mood] || '' : ''}</div>
+        </div>
+        <div class="journal-body">${j.body.slice(0, 200)}${j.body.length > 200 ? '…' : ''}</div>
+      </div>`;
+    });
+    jHtml += '</div>';
+    el.innerHTML += jHtml;
+  }
+
+  // Wins & misses callout
+  if (perfects.length || missed.length) {
+    let calloutHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">';
+    if (perfects.length) {
+      calloutHtml += `<div style="background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:4px;padding:12px;">
+        <div class="section-title" style="color:var(--green);margin-bottom:8px;">✓ PERFECT WEEK</div>
+        ${perfects.map(r=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;margin-bottom:4px;">• ${r.task.name}</div>`).join('')}
+      </div>`;
+    }
+    if (missed.length) {
+      calloutHtml += `<div style="background:rgba(255,68,68,.05);border:1px solid rgba(255,68,68,.2);border-radius:4px;padding:12px;">
+        <div class="section-title" style="color:var(--red);margin-bottom:8px;">✗ MISSED ALL WEEK</div>
+        ${missed.map(r=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;margin-bottom:4px;color:var(--muted);">• ${r.task.name}</div>`).join('')}
+      </div>`;
+    }
+    calloutHtml += '</div>';
+    el.innerHTML = calloutHtml + el.innerHTML; // prepend wins/misses before the stats
+    // Actually re-insert after stat row — let's just append at end
+    el.innerHTML += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+      ${perfects.length ? `<div style="background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:4px;padding:12px;">
+        <div class="section-title" style="color:var(--green);margin-bottom:8px;">✓ PERFECT WEEK</div>
+        ${perfects.map(r=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;margin-bottom:4px;">• ${r.task.name}</div>`).join('')}
+      </div>` : '<div></div>'}
+      ${missed.length ? `<div style="background:rgba(255,68,68,.05);border:1px solid rgba(255,68,68,.2);border-radius:4px;padding:12px;">
+        <div class="section-title" style="color:var(--red);margin-bottom:8px;">✗ MISSED ALL WEEK</div>
+        ${missed.map(r=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;margin-bottom:4px;color:var(--muted);">• ${r.task.name}</div>`).join('')}
+      </div>` : '<div></div>'}
+    </div>`;
+  }
+}
+
+// ── Export weekly review as printable HTML page ──
+function exportWeeklyReport() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    days7.push(dateStr(d));
+  }
+  const startStr = days7[0], endStr = days7[6];
+  const username = localStorage.getItem('lifeos_username') || 'Life OS';
+
+  const taskStats = _allTasks.map(t => {
+    const expected = days7.filter(d => isTaskDueOn(t, d)).length;
+    if (!expected) return null;
+    const done = days7.filter(d => _allLogs.some(l => l.task_id === t.id && l.completed_date === d)).length;
+    const rate = Math.round(done / expected * 100);
+    const weekNotes = _allLogs.filter(l => l.task_id === t.id && days7.includes(l.completed_date) && l.notes);
+    return { task: t, expected, done, rate, weekNotes };
+  }).filter(Boolean).sort((a, b) => b.rate - a.rate);
+
+  const habitStats = _allHabits.map(h => {
+    const done = days7.filter(d => _allHabitLogs.some(l => l.habit_id === h.id && l.log_date === d)).length;
+    return { habit: h, done, streak: calcHabitStreak(h) };
+  });
+
+  const MOOD_RANK = { great: 5, good: 4, okay: 3, rough: 2, bad: 1 };
+  const weekJournals = _allJournals.filter(j => j.entry_date >= startStr && j.entry_date <= endStr)
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+
+  const totalExp  = taskStats.reduce((s, r) => s + r.expected, 0);
+  const totalDone = taskStats.reduce((s, r) => s + r.done, 0);
+  const overallRate = totalExp > 0 ? Math.round(totalDone / totalExp * 100) : 100;
+
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+  <title>Weekly Review — ${fmtDate(startStr)}</title>
+  <style>
+    body{font-family:'Segoe UI',sans-serif;max-width:780px;margin:40px auto;padding:0 24px;color:#1a1a2e;line-height:1.5;}
+    h1{font-size:2rem;margin-bottom:2px;}h2{font-size:1.1rem;border-bottom:2px solid #1d4ed8;color:#1d4ed8;padding-bottom:4px;margin:24px 0 10px;}
+    .sub{color:#666;font-size:.85rem;margin-bottom:20px;}
+    .stat-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+    .stat{background:#f0f4ff;border-radius:6px;padding:12px 16px;text-align:center;min-width:90px;}
+    .stat-v{font-size:1.6rem;font-weight:700;color:#1d4ed8;}
+    .stat-l{font-size:.65rem;text-transform:uppercase;color:#666;letter-spacing:.05em;}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:.85rem;}
+    th{text-align:left;background:#f5f5f5;padding:6px 10px;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;}
+    td{padding:7px 10px;border-bottom:1px solid #eee;}
+    .bar-wrap{background:#eee;border-radius:4px;height:8px;width:100px;display:inline-block;}
+    .bar-fill{height:8px;border-radius:4px;}
+    .good{color:#00a844;}.warn{color:#d97706;}.bad{color:#dc2626;}
+    .journal-block{background:#fafafa;border-left:4px solid #1d4ed8;padding:10px 14px;margin-bottom:10px;border-radius:0 4px 4px 0;}
+    .jd{font-size:.75rem;color:#666;margin-bottom:4px;}
+    .jb{font-size:.85rem;white-space:pre-wrap;}
+    @media print{body{margin:0 auto;}button{display:none;}}
+  </style></head><body>
+  <h1>📋 Weekly Review</h1>
+  <div class="sub">${username} · ${fmtDate(startStr)} — ${fmtDate(endStr)}</div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-v ${overallRate>=80?'good':overallRate>=50?'warn':'bad'}">${overallRate}%</div><div class="stat-l">Task Rate</div></div>
+    <div class="stat"><div class="stat-v">${totalDone}</div><div class="stat-l">Tasks Done</div></div>
+    <div class="stat"><div class="stat-v">${taskStats.length}</div><div class="stat-l">Active Tasks</div></div>
+    <div class="stat"><div class="stat-v">${habitStats.reduce((s,h)=>s+h.done,0)}/${habitStats.length*7}</div><div class="stat-l">Habits</div></div>
+    <div class="stat"><div class="stat-v">${weekJournals.length}</div><div class="stat-l">Journal Entries</div></div>
+  </div>`;
+
+  if (taskStats.length) {
+    html += `<h2>TASK COMPLETION</h2><table><tr><th>Task</th><th>Category</th><th>Done</th><th>Progress</th><th>%</th></tr>`;
+    taskStats.forEach(r => {
+      const rc = r.rate >= 80 ? 'good' : r.rate >= 50 ? 'warn' : 'bad';
+      const barColor = r.rate >= 80 ? '#00a844' : r.rate >= 50 ? '#d97706' : '#dc2626';
+      html += `<tr>
+        <td><strong>${r.task.name}</strong>${r.weekNotes.length ? r.weekNotes.map(l=>`<br><small style="color:#888">📝 ${fmtDate(l.completed_date)}: ${l.notes}</small>`).join('') : ''}</td>
+        <td style="color:#666;font-size:.8rem;">${r.task.category||'—'}</td>
+        <td>${r.done}/${r.expected}</td>
+        <td><div class="bar-wrap"><div class="bar-fill" style="width:${r.rate}%;background:${barColor};"></div></div></td>
+        <td class="${rc}"><strong>${r.rate}%</strong></td>
+      </tr>`;
+    });
+    html += `</table>`;
+  }
+
+  if (habitStats.length) {
+    html += `<h2>HABITS</h2><table><tr><th>Habit</th><th>Days This Week</th><th>Streak</th></tr>`;
+    habitStats.forEach(h => {
+      html += `<tr><td>${h.habit.name}</td><td>${h.done}/7</td><td>🔥 ${h.streak}d</td></tr>`;
+    });
+    html += `</table>`;
+  }
+
+  if (weekJournals.length) {
+    html += `<h2>JOURNAL ENTRIES</h2>`;
+    weekJournals.forEach(j => {
+      html += `<div class="journal-block"><div class="jd">${fmtDate(j.entry_date)} ${j.mood ? MOOD_ICONS[j.mood] : ''}</div><div class="jb">${j.body.replace(/</g,'&lt;')}</div></div>`;
+    });
+  }
+
+  const perfects = taskStats.filter(r => r.rate === 100);
+  const missed   = taskStats.filter(r => r.rate === 0);
+  if (perfects.length || missed.length) {
+    html += `<h2>HIGHLIGHTS</h2>`;
+    if (perfects.length) html += `<p><strong style="color:#00a844">✓ Perfect week:</strong> ${perfects.map(r=>r.task.name).join(', ')}</p>`;
+    if (missed.length)   html += `<p><strong style="color:#dc2626">✗ Missed all week:</strong> ${missed.map(r=>r.task.name).join(', ')}</p>`;
+  }
+
+  html += `<p style="color:#999;font-size:.75rem;margin-top:32px;border-top:1px solid #eee;padding-top:12px;">Generated by Life OS · ${new Date().toLocaleString()}</p>
+  <script>window.print();<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `weekly-review-${endStr}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Report exported!', 'success');
+}
 
 // ══════════════════════════════════════════════════════
 // SETTINGS
