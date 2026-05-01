@@ -671,6 +671,7 @@ function saveConfig() {
   document.getElementById('configModal').style.display = 'none';
   showToast('Connection saved!', 'success');
   loadAll();
+  startRealtime();
 }
 function showConfig() {
   document.getElementById('cfgUrl').value = localStorage.getItem('lifeos_url')||'';
@@ -1569,6 +1570,22 @@ function saveUserSettings() {
   showToast('Profile saved! ✓', 'success');
 }
 
+
+// ══════════════════════════════════════════════════════
+// REALTIME — auto-refresh every 30 seconds
+// ══════════════════════════════════════════════════════
+let _realtimeTimer = null;
+
+function startRealtime() {
+  if (!sbClient) return;
+  // Clear any existing timer
+  if (_realtimeTimer) clearInterval(_realtimeTimer);
+  // Reload all data every 30 seconds silently
+  _realtimeTimer = setInterval(() => {
+    loadAll();
+  }, 30000);
+}
+
 // ══════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════
@@ -1591,6 +1608,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initSupabase(url,key);
     document.getElementById('configModal').style.display='none';
     loadAll();
+    startRealtime();
   } else {
     document.getElementById('configModal').style.display='flex';
   }
