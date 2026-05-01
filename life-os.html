@@ -438,7 +438,7 @@ select option{background:var(--surface);}
       <div class="card">
         <div class="section-title">ABOUT</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--muted);line-height:1.8;">
-          <div>Version: <span style="color:var(--text);">1.1</span></div>
+          <div>Version: <span style="color:var(--text);">1.2</span></div>
           <div>Tasks: <span style="color:var(--text);" id="set_task_count">—</span></div>
           <div>Habits: <span style="color:var(--text);" id="set_habit_count">—</span></div>
           <div>Journal entries: <span style="color:var(--text);" id="set_journal_count">—</span></div>
@@ -474,17 +474,28 @@ select option{background:var(--surface);}
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="custom">Custom interval</option>
+          <option value="smart">After completion ♻</option>
           <option value="once">One-time</option>
         </select>
       </div>
     </div>
     <div class="field" id="intervalField" style="display:none;">
-      <label>Every X Days</label>
-      <input type="number" id="t_interval" min="1" placeholder="e.g. 3" />
+      <label id="intervalLabel">Every X Days</label>
+      <input type="number" id="t_interval" min="1" placeholder="e.g. 90" />
+      <div id="intervalHint" style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:5px;display:none;">
+        ♻ Next due date resets from when you mark it done. Task stays visible until completed — no red overdue, just persistent.
+      </div>
     </div>
     <div class="field-row" style="grid-template-columns:1fr 1fr;">
       <div class="field"><label>Start Date</label><input type="date" id="t_start" /></div>
       <div class="field"><label>Due Time (optional)</label><input type="time" id="t_time" /></div>
+    </div>
+    <div class="field-row" id="nextDueRow" style="grid-template-columns:1fr;display:none;">
+      <div class="field">
+        <label>Next Due Date <span style="color:var(--muted);font-size:.55rem;">(auto-updates after each completion)</span></label>
+        <input type="date" id="t_next_due" />
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--dim);margin-top:4px;">Leave blank to use Start Date. Will be overwritten when you mark done.</div>
+      </div>
     </div>
     <div class="field"><label>Notes</label><textarea id="t_notes" rows="2" placeholder="Any details…"></textarea></div>
     <div class="modal-footer">
@@ -648,7 +659,10 @@ select option{background:var(--surface);}
 
 <script>
 // ══════════════════════════════════════════════════════
-// LIFE OS — Core
+// LIFE OS — Core  v1.2
+// ══════════════════════════════════════════════════════
+// SUPABASE MIGRATION — run once in SQL Editor:
+//   ALTER TABLE los_tasks ADD COLUMN IF NOT EXISTS next_due_date date;
 // ══════════════════════════════════════════════════════
 let sbClient = null;
 let _allTasks=[], _allLogs=[], _allHabits=[], _allHabitLogs=[], _allJournals=[];
@@ -662,7 +676,7 @@ const CAT_COLORS = {
   Home:'#60a5fa', Learning:'#93c5fd', Work:'#e8500a',
   Relationships:'#f472b6', Mindfulness:'#34d399', Other:'#94a3b8'
 };
-const RECUR_LABELS = {daily:'Daily', weekly:'Weekly', custom:'Custom', once:'One-time'};
+const RECUR_LABELS = {daily:'Daily', weekly:'Weekly', custom:'Custom', smart:'After Completion ♻', once:'One-time'};
 const MOOD_ICONS = {great:'🌟',good:'😊',okay:'😐',rough:'😔',bad:'😞'};
 
 // ── Date helpers ──────────────────────────────────────
@@ -787,15 +801,20 @@ function renderToday() {
     taskEl.innerHTML = '';
     dueTasks.forEach(t => {
       const done = doneTasks.has(t.id);
-      // Check if overdue from previous days
-      const isOverdue = !done && (() => {
+      const isSmart = t.recurrence === 'smart';
+      // For non-smart tasks: check if overdue from previous days
+      const isOverdue = !done && !isSmart && (() => {
         for(let i=1;i<=30;i++){const d=new Date();d.setDate(d.getDate()-i);const ds=dateStr(d);if(isTaskDueOn(t,ds)&&!_allLogs.some(l=>l.task_id===t.id&&l.completed_date===ds))return true;if(isTaskDueOn(t,ds))break;}return false;
       })();
       const div  = document.createElement('div');
       div.className = 'quick-check'+(done?' checked':'');
-      if(!done) div.style.borderLeft = isOverdue ? '3px solid var(--red)' : '3px solid var(--accent)';
+      if(!done) div.style.borderLeft = isOverdue ? '3px solid var(--red)' : isSmart ? '3px solid var(--cyan)' : '3px solid var(--accent)';
       div.onclick   = () => done ? null : openCompleteModal(t.id, t.name);
       const color   = CAT_COLORS[t.category]||'var(--muted)';
+      // Smart task: show next due countdown info
+      const smartMeta = isSmart && !done && t.next_due_date
+        ? `<span style="color:var(--cyan);">♻ ${t.interval_days}d cycle</span>`
+        : isSmart && !done ? `<span style="color:var(--cyan);">♻ After completion</span>` : '';
       div.innerHTML = `
         <div class="check-circle">${done?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.5" fill="none"/></svg>':''}</div>
         <div class="check-label">
@@ -803,9 +822,10 @@ function renderToday() {
           <div style="font-family:IBM Plex Mono,monospace;font-size:.58rem;color:var(--muted);margin-top:2px;">
             ${t.category?`<span style="color:${color};">${t.category}</span>`:''}
             ${t.due_time?` · ⏰ ${t.due_time}`:''}
+            ${smartMeta ? ` · ${smartMeta}` : ''}
           </div>
         </div>
-        ${done?'<span class="badge b-green">✓ DONE</span>':''}`;
+        ${done?'<span class="badge b-green">✓ DONE</span>':isSmart?'<span class="badge b-cyan">PENDING</span>':''}`;
       taskEl.appendChild(div);
     });
   }
@@ -836,12 +856,28 @@ function renderToday() {
 // ══════════════════════════════════════════════════════
 // TASK SCHEDULING HELPERS
 // ══════════════════════════════════════════════════════
-function isTaskDueOn(task, dateStr) {
-  const date  = new Date(dateStr+'T00:00:00');
+function isTaskDueOn(task, ds) {
+  const date  = new Date(ds+'T00:00:00');
   const start = task.start_date ? new Date(task.start_date+'T00:00:00') : date;
   if (date < start) return false;
+
+  if (task.recurrence==='smart') {
+    // Due on any day >= next_due_date (or start_date if no next_due set),
+    // AND not yet completed on or after that anchor date.
+    const anchor = task.next_due_date
+      ? new Date(task.next_due_date+'T00:00:00')
+      : start;
+    if (date < anchor) return false;
+    // Check if already completed on or after the anchor (i.e. this cycle done)
+    const anchorStr = dateStr(anchor);
+    const completedThisCycle = _allLogs.some(l =>
+      l.task_id === task.id && l.completed_date >= anchorStr
+    );
+    return !completedThisCycle;
+  }
+
   if (task.recurrence==='daily')  return true;
-  if (task.recurrence==='once')   return task.start_date===dateStr;
+  if (task.recurrence==='once')   return task.start_date===ds;
   if (task.recurrence==='weekly') return Math.round((date-start)/86400000)%7===0;
   if (task.recurrence==='custom'&&task.interval_days)
     return Math.round((date-start)/86400000)%task.interval_days===0;
@@ -999,14 +1035,27 @@ async function openTaskDetail(task) {
 
   const color=CAT_COLORS[task.category]||'var(--accent)';
   document.getElementById('tdName').textContent=task.name;
+  // For smart tasks, show next due date prominently
+  const smartNextDue = task.recurrence==='smart' && task.next_due_date
+    ? `next due ${fmtDate(task.next_due_date)}`
+    : '';
   document.getElementById('tdMeta').textContent=[
     RECUR_LABELS[task.recurrence]||task.recurrence,
-    task.interval_days?'every '+task.interval_days+'d':'',
+    task.recurrence==='smart'?'every '+task.interval_days+'d after completion':'',
+    task.recurrence!=='smart'&&task.interval_days?'every '+task.interval_days+'d':'',
+    smartNextDue,
     task.category, task.due_time?'⏰ '+task.due_time:''
   ].filter(Boolean).join('  ·  ');
 
+  // For smart tasks: mark done button logic — disable if already completed this cycle
   const doneBtn=document.getElementById('tdMarkBtn');
-  if(isDoneToday(task.id)){doneBtn.textContent='✓ DONE TODAY';doneBtn.disabled=true;doneBtn.style.opacity='.5';}
+  const smartDoneCycle = task.recurrence==='smart' && task.next_due_date && _allLogs.some(l=>l.task_id===task.id && l.completed_date>=task.next_due_date);
+  const smartCurrentlyPending = task.recurrence==='smart' && isTaskDueOn(task, todayStr());
+  if(task.recurrence==='smart') {
+    if(smartDoneCycle){doneBtn.textContent='✓ DONE THIS CYCLE';doneBtn.disabled=true;doneBtn.style.opacity='.5';}
+    else if(smartCurrentlyPending){doneBtn.textContent='✓ MARK DONE';doneBtn.disabled=false;doneBtn.style.opacity='1';}
+    else{doneBtn.textContent='NOT DUE YET';doneBtn.disabled=true;doneBtn.style.opacity='.4';}
+  } else if(isDoneToday(task.id)){doneBtn.textContent='✓ DONE TODAY';doneBtn.disabled=true;doneBtn.style.opacity='.5';}
   else{doneBtn.textContent='✓ MARK DONE';doneBtn.disabled=false;doneBtn.style.opacity='1';}
 
   // Stats
@@ -1122,6 +1171,7 @@ function openTaskModal(t) {
   document.getElementById('t_start').value=t?.start_date||todayStr();
   document.getElementById('t_time').value=t?.due_time||'';
   document.getElementById('t_notes').value=t?.notes||'';
+  document.getElementById('t_next_due').value=t?.next_due_date||'';
   document.getElementById('deleteTaskBtn').style.display=t?'inline-block':'none';
   toggleIntervalField();
   document.getElementById('taskModal').classList.add('open');
@@ -1129,7 +1179,14 @@ function openTaskModal(t) {
 }
 function closeTaskModal(){document.getElementById('taskModal').classList.remove('open');_editTaskId=null;}
 function toggleIntervalField(){
-  document.getElementById('intervalField').style.display=document.getElementById('t_rec').value==='custom'?'block':'none';
+  const rec = document.getElementById('t_rec').value;
+  const needsInterval = rec==='custom'||rec==='smart';
+  document.getElementById('intervalField').style.display = needsInterval?'block':'none';
+  document.getElementById('intervalLabel').textContent = rec==='smart'?'Repeat Every X Days (after completion)':'Every X Days';
+  document.getElementById('intervalHint').style.display = rec==='smart'?'block':'none';
+  // Show/hide next_due field row
+  const ndRow = document.getElementById('nextDueRow');
+  if(ndRow) ndRow.style.display = rec==='smart'?'grid':'none';
 }
 
 async function saveTask() {
@@ -1137,14 +1194,15 @@ async function saveTask() {
   const btn=document.getElementById('saveTaskBtn');
   btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
   const record={
-    name:        document.getElementById('t_name').value.trim(),
-    category:    document.getElementById('t_cat').value||null,
-    recurrence:  document.getElementById('t_rec').value,
-    interval_days:parseInt(document.getElementById('t_interval').value)||null,
-    start_date:  document.getElementById('t_start').value||todayStr(),
-    due_time:    document.getElementById('t_time').value||null,
-    notes:       document.getElementById('t_notes').value.trim()||null,
-    updated_at:  new Date().toISOString(),
+    name:          document.getElementById('t_name').value.trim(),
+    category:      document.getElementById('t_cat').value||null,
+    recurrence:    document.getElementById('t_rec').value,
+    interval_days: parseInt(document.getElementById('t_interval').value)||null,
+    start_date:    document.getElementById('t_start').value||todayStr(),
+    due_time:      document.getElementById('t_time').value||null,
+    notes:         document.getElementById('t_notes').value.trim()||null,
+    next_due_date: document.getElementById('t_next_due').value||null,
+    updated_at:    new Date().toISOString(),
   };
   if(!record.name){showToast('Name required.','error');btn.innerHTML='SAVE TASK';btn.disabled=false;return;}
   let error;
@@ -1180,11 +1238,25 @@ function renderTaskLibrary() {
   el.innerHTML='';
   tasks.forEach(t=>{
     const color=CAT_COLORS[t.category]||'var(--muted)';
-    // Overdue check — missed any scheduled day in last 7 days
-    let _tOverdue=false, _tDone=isDoneToday(t.id);
-    if(!_tDone){for(let _i=1;_i<=7;_i++){const _d=new Date();_d.setDate(_d.getDate()-_i);const _ds=dateStr(_d);if(isTaskDueOn(t,_ds)&&!_allLogs.some(l=>l.task_id===t.id&&l.completed_date===_ds)){_tOverdue=true;break;}if(isTaskDueOn(t,_ds))break;}}
+    const isSmart = t.recurrence==='smart';
+    const _tDone=isDoneToday(t.id);
+    // Smart tasks: check if currently pending (due now, not yet completed this cycle)
+    const _tPending = isSmart && !_tDone && isTaskDueOn(t, todayStr());
+    // Non-smart: overdue check
+    let _tOverdue=false;
+    if(!isSmart&&!_tDone){for(let _i=1;_i<=7;_i++){const _d=new Date();_d.setDate(_d.getDate()-_i);const _ds=dateStr(_d);if(isTaskDueOn(t,_ds)&&!_allLogs.some(l=>l.task_id===t.id&&l.completed_date===_ds)){_tOverdue=true;break;}if(isTaskDueOn(t,_ds))break;}}
+    // Days until next due for smart tasks that are NOT yet pending
+    let nextDueInfo = '';
+    if(isSmart && !_tPending && !_tDone && t.next_due_date) {
+      const daysUntil = Math.ceil((new Date(t.next_due_date+'T00:00:00') - new Date(todayStr()+'T00:00:00')) / 86400000);
+      nextDueInfo = daysUntil > 0
+        ? `<span style="color:var(--cyan);">♻ due in ${daysUntil}d (${fmtDate(t.next_due_date)})</span>`
+        : `<span style="color:var(--cyan);">♻ due today</span>`;
+    } else if(isSmart && !t.next_due_date) {
+      nextDueInfo = `<span style="color:var(--cyan);">♻ ${t.interval_days||'?'}d cycle</span>`;
+    }
     const card=document.createElement('div');
-    card.className='task-card'+(_tDone?' done-today':_tOverdue?' overdue':'');
+    card.className='task-card'+(_tDone?' done-today':_tOverdue?' overdue':_tPending?' due-today':'');
     card.onclick=()=>openTaskDetail(t);
     card.innerHTML=`
       <div style="display:flex;align-items:start;justify-content:space-between;gap:10px;">
@@ -1192,13 +1264,14 @@ function renderTaskLibrary() {
           <div class="task-name" style="${_tOverdue&&!_tDone?'color:var(--red);':''}">${_tOverdue&&!_tDone?'⚠ ':''}${t.name}</div>
           <div class="task-meta">
             <span style="color:${color};">${t.category||'—'}</span>
-            <span>${RECUR_LABELS[t.recurrence]||t.recurrence}${t.interval_days?' ('+t.interval_days+'d)':''}</span>
+            <span>${RECUR_LABELS[t.recurrence]||t.recurrence}${t.interval_days&&!isSmart?' ('+t.interval_days+'d)':''}</span>
             ${t.due_time?`<span>⏰ ${t.due_time}</span>`:''}
-            ${t.start_date?`<span>from ${fmtDate(t.start_date)}</span>`:''}
+            ${nextDueInfo}
+            ${!isSmart&&t.start_date?`<span>from ${fmtDate(t.start_date)}</span>`:''}
           </div>
           ${t.notes?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dim);margin-top:5px;">${t.notes}</div>`:''}
         </div>
-        ${_tDone?'<span class="badge b-green">✓ TODAY</span>':_tOverdue?'<span class="badge b-red">OVERDUE</span>':''}
+        ${_tDone?'<span class="badge b-green">✓ TODAY</span>':_tPending?'<span class="badge b-cyan">PENDING</span>':_tOverdue?'<span class="badge b-red">OVERDUE</span>':''}
       </div>`;
     el.appendChild(card);
   });
@@ -1237,7 +1310,22 @@ async function saveCompletion() {
   }]);
   btn.innerHTML='✓ DONE';btn.disabled=false;
   if(error){showToast('Error: '+error.message,'error');return;}
-  showToast('Logged! ✓','success');
+
+  // ── Smart recurrence: auto-schedule next due date ──
+  const completedTask = _allTasks.find(t=>t.id===_completeTaskId);
+  if(completedTask?.recurrence==='smart' && completedTask?.interval_days){
+    const nextDate = new Date(_compDate+'T00:00:00');
+    nextDate.setDate(nextDate.getDate()+completedTask.interval_days);
+    const nextDueStr = dateStr(nextDate);
+    await sbClient.from('los_tasks').update({
+      next_due_date: nextDueStr,
+      updated_at:    new Date().toISOString()
+    }).eq('id',_completeTaskId);
+    showToast(`✓ Done! Next due: ${fmtDate(nextDueStr)}`,'success');
+  } else {
+    showToast('Logged! ✓','success');
+  }
+
   closeCompleteModal();await loadAll();
 }
 
