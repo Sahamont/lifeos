@@ -1074,10 +1074,6 @@ function toggleComingUp() {
 }
 function setComingUpDays(n) {
   _comingUpDays = n;
-  document.getElementById('cuBtn7').style.borderColor  = n===7  ? 'var(--accent)' : '';
-  document.getElementById('cuBtn7').style.color        = n===7  ? 'var(--accent)' : '';
-  document.getElementById('cuBtn15').style.borderColor = n===15 ? 'var(--accent)' : '';
-  document.getElementById('cuBtn15').style.color       = n===15 ? 'var(--accent)' : '';
   renderComingUp();
 }
 function renderComingUp() {
@@ -1092,15 +1088,23 @@ function renderComingUp() {
       }
     });
   }
+
+  // Update count badge
   const countEl = document.getElementById('comingUpCount');
   if (countEl) countEl.textContent = upcoming.length ? `${upcoming.length} task${upcoming.length!==1?'s':''} in ${_comingUpDays}d` : '';
+
+  // Style day toggle buttons
+  const b7 = document.getElementById('cuBtn7');
+  const b15 = document.getElementById('cuBtn15');
+  if (b7)  { b7.style.borderColor  = _comingUpDays===7  ? 'var(--accent)' : ''; b7.style.color  = _comingUpDays===7  ? 'var(--accent)' : ''; }
+  if (b15) { b15.style.borderColor = _comingUpDays===15 ? 'var(--accent)' : ''; b15.style.color = _comingUpDays===15 ? 'var(--accent)' : ''; }
+
   if (!_comingUpOpen) return;
-  // Set active day button
-  setComingUpDays(_comingUpDays);
+
   const el = document.getElementById('comingUpList');
   if (!el) return;
   if (!upcoming.length) {
-    el.innerHTML = '<div style="font-family:IBM Plex Mono,monospace;font-size:.7rem;color:var(--muted);padding:8px 0;">Nothing coming up in the next '+_comingUpDays+' days.</div>';
+    el.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted);padding:8px 0;">Nothing coming up in the next ${_comingUpDays} days.</div>`;
     return;
   }
   el.innerHTML = '';
